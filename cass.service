@@ -1,0 +1,35 @@
+[Unit]
+Description=CASS - Camera Alert Surveillance System
+After=network.target ollama.service
+Wants=ollama.service
+
+[Service]
+Type=simple
+User=cass
+Group=cass
+WorkingDirectory=/opt/cass
+Environment="PATH=/opt/cass/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/opt/cass/venv/bin/python app.py
+Restart=always
+RestartSec=10
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/cass/logs /opt/cass/recordings /opt/cass/data
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cass
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=4G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target

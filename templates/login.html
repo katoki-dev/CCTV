@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEMSS — Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #060912;
+            --glass: rgba(15, 20, 40, 0.75);
+            --border: rgba(0, 240, 255, 0.18);
+            --cyan: #00F0FF;
+            --cyan-dim: rgba(0, 240, 255, 0.12);
+            --purple: #7C3AED;
+            --text: #E0E7FF;
+            --muted: #8B949E;
+            --danger: #FF4D6D;
+            --danger-bg: rgba(255, 77, 109, 0.1);
+            --radius: 16px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Animated Background */
+        .bg-canvas {
+            position: fixed; inset: 0; z-index: 0;
+            background: radial-gradient(ellipse 80% 60% at 20% 20%, rgba(0,240,255,0.06) 0%, transparent 60%),
+                        radial-gradient(ellipse 60% 60% at 80% 80%, rgba(124,58,237,0.08) 0%, transparent 60%),
+                        #060912;
+        }
+
+        .orb {
+            position: absolute; border-radius: 50%;
+            filter: blur(80px); animation: float 8s ease-in-out infinite;
+        }
+        .orb-1 { width: 400px; height: 400px; top: -100px; left: -100px; background: rgba(0,240,255,0.07); }
+        .orb-2 { width: 300px; height: 300px; bottom: -80px; right: -80px; background: rgba(124,58,237,0.1); animation-delay: -4s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-30px) scale(1.05); }
+        }
+
+        /* Card */
+        .login-wrap { position: relative; z-index: 1; width: 100%; max-width: 420px; padding: 1.5rem; }
+
+        .login-card {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2.5rem;
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+            animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Header */
+        .brand-badge {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: var(--cyan-dim); border: 1px solid var(--border);
+            border-radius: 50px; padding: 6px 14px; margin-bottom: 1.5rem;
+        }
+        .brand-dot { width: 8px; height: 8px; background: var(--cyan); border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(0,240,255,0.4);} 50%{box-shadow:0 0 0 6px transparent;} }
+        .brand-badge span { font-size: 0.75rem; font-weight: 600; color: var(--cyan); letter-spacing: 0.1em; }
+
+        .login-heading { font-size: 1.8rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+        .login-heading span { color: var(--cyan); }
+        .login-sub { margin-top: 0.4rem; color: var(--muted); font-size: 0.875rem; margin-bottom: 2rem; }
+
+        /* Alert */
+        .alert-error {
+            display: flex; align-items: center; gap: 10px;
+            background: var(--danger-bg); border: 1px solid rgba(255,77,109,0.3);
+            border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1.5rem;
+            color: var(--danger); font-size: 0.875rem;
+        }
+
+        /* Form */
+        .form-group { margin-bottom: 1.25rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-size: 0.8rem; font-weight: 500; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+
+        .input-wrap { position: relative; }
+        .input-wrap input {
+            width: 100%; padding: 0.8rem 1rem; padding-right: 3rem;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; color: var(--text); font-size: 0.95rem; font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+        .input-wrap input::placeholder { color: rgba(255,255,255,0.2); }
+        .input-wrap input:focus {
+            outline: none; border-color: var(--cyan);
+            background: rgba(0,240,255,0.04);
+            box-shadow: 0 0 0 3px rgba(0,240,255,0.12);
+        }
+
+        .eye-btn {
+            position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; color: var(--muted);
+            font-size: 1rem; padding: 4px; transition: color 0.2s;
+        }
+        .eye-btn:hover { color: var(--cyan); }
+
+        /* Submit */
+        .btn-submit {
+            width: 100%; margin-top: 0.5rem;
+            padding: 0.85rem; border: none; border-radius: 10px; cursor: pointer;
+            font-size: 0.95rem; font-weight: 600; font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--cyan) 0%, #0099CC 100%);
+            color: #020812; letter-spacing: 0.02em;
+            transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+            box-shadow: 0 4px 20px rgba(0,240,255,0.3);
+        }
+        .btn-submit:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 6px 28px rgba(0,240,255,0.4); }
+        .btn-submit:active { transform: translateY(0); }
+        .btn-submit.loading { opacity: 0.6; pointer-events: none; }
+        .btn-submit.loading::after { content: ' ⏳'; }
+
+        /* Footer */
+        .login-footer { margin-top: 1.5rem; text-align: center; }
+        .login-footer p { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; }
+        .login-footer a { color: var(--cyan); text-decoration: none; font-weight: 500; }
+        .login-footer a:hover { text-decoration: underline; }
+        .divider { width: 40px; height: 1px; background: var(--border); margin: 1rem auto; }
+    </style>
+</head>
+<body>
+    <div class="bg-canvas">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+    </div>
+
+    <div class="login-wrap">
+        <div class="login-card">
+            <div class="brand-badge">
+                <div class="brand-dot"></div>
+                <span>CEMSS SYSTEM</span>
+            </div>
+
+            <h1 class="login-heading">Welcome <span>Back</span></h1>
+            <p class="login-sub">Campus Event Management & Surveillance System</p>
+
+            {% if error %}
+            <div class="alert-error">
+                <span>⚠</span>
+                <span>{{ error }}</span>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <div class="input-wrap">
+                        <input type="text" id="username" name="username" required autofocus placeholder="Enter your username">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-wrap">
+                        <input type="password" id="password" name="password" required placeholder="Enter your password">
+                        <button type="button" class="eye-btn" onclick="togglePassword()" id="eyeBtn">👁</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" id="loginBtn">Sign In</button>
+            </form>
+
+            <div class="login-footer">
+                <div class="divider"></div>
+                <p>Default credentials: <strong style="color:var(--text)">admin / admin</strong></p>
+                <p style="margin-top:0.6rem">No account? <a href="{{ url_for('auth.register') }}">Register here</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function togglePassword() {
+            const f = document.getElementById('password');
+            const b = document.getElementById('eyeBtn');
+            f.type = f.type === 'password' ? 'text' : 'password';
+            b.textContent = f.type === 'password' ? '👁' : '🙈';
+        }
+        document.getElementById('loginForm').addEventListener('submit', function() {
+            const btn = document.getElementById('loginBtn');
+            btn.classList.add('loading');
+            btn.disabled = true;
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+virtualenv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# CASS Specific
+# database.db
+# database_backup*.db
+# *.db-journal
+
+# Logs
+logs/*.log
+*.log
+
+# Environment
+# .env
+# .env.local
+# .env.production
+
+# Recordings & Cache
+recordings/*.mp4
+recordings/*.avi
+cache/
+cached_frames/
+__pycache__/
+
+# Models (allowed for portable version)
+# models/*.pt
+# models/*.pth
+# models/*.onnx
+# models/*.weights
+!models/README.md
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Test outputs
+test_results*.json
+test_*.txt
+*.png
+*.jpg
+*.jpeg
+*.webp
+!docs/screenshots/*.png
+!docs/*.png
+
+# System
+Thumbs.db
+.DS_Store
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyCharm
+.idea/
+
+# Ollama (don't commit models)
+.ollama/
+
+# Flask
+# instance/
+.webassets-cache
+
+# Node (if using any JS build tools)
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Backup files
+*.bak
+*.backup

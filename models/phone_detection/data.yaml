@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['mobile-phone']
+
+roboflow:
+  workspace: yolovehicledetection
+  project: phone-detection-nkzix
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/yolovehicledetection/phone-detection-nkzix/dataset/1

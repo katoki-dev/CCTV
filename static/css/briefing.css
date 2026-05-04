@@ -1,0 +1,106 @@
+/* =============================
+   LLM DASHBOARD BRIEFING
+   ============================= */
+
+.briefing-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+.briefing-header {
+    padding: 1rem 1.5rem;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.briefing-header h3 {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.briefing-time {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    flex: 1;
+}
+
+.briefing-content {
+    padding: 1.5rem;
+    min-height: 120px;
+}
+
+.briefing-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+.briefing-loading .loader-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--bg-tertiary);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+.briefing-text {
+    color: var(--text-primary);
+    line-height: 1.8;
+    white-space: pre-wrap;
+}
+
+.briefing-text strong {
+    color: var(--accent-primary);
+    font-weight: 600;
+}
+
+.briefing-error {
+    text-align: center;
+    padding: 2rem;
+    color: var(--accent-danger);
+}
+
+.briefing-footer {
+    padding: 0.75rem 1.5rem;
+    background: var(--bg-tertiary);
+    border-top: 1px solid var(--border-color);
+}
+
+.briefing-footer small {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Briefing  responsive */
+@media (max-width: 768px) {
+    .briefing-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .briefing-time {
+        width: 100%;
+    }
+}

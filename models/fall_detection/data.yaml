@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['Fall-Detected']
+
+roboflow:
+  workspace: cass-pm8kd
+  project: fall-detection-ca3o8-5er91
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/cass-pm8kd/fall-detection-ca3o8-5er91/dataset/1

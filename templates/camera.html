@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ camera.name }} - CASS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+</head>
+
+<body>
+    {% include 'navbar.html' %}
+
+    <div class="container-fluid">
+        <div class="camera-view-layout">
+            <!-- Main Feed -->
+            <div class="main-feed">
+                <div class="feed-container">
+                    <img src="{{ url_for('video_stream', camera_id=camera.id) }}" alt="{{ camera.name }}"
+                        class="fullscreen-feed">
+                </div>
+
+                <div class="feed-controls">
+                    <div class="control-group">
+                        <button id="recordBtn" class="btn btn-primary">
+                            {{ 'Stop Recording' if camera.recording_enabled else 'Start Recording' }}
+                        </button>
+                        <button id="manualAlertBtn" class="btn btn-warning">Send Alert</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <!-- Detection Controls -->
+                <div class="panel">
+                    <h3>Detection Models</h3>
+                    <div class="detection-controls">
+                        {% for model_name, model_config in detection_models.items() %}
+                        <div class="detection-toggle">
+                            <label class="toggle-switch toggle-sm toggle-success">
+                                <input type="checkbox" class="detection-model" data-model="{{ model_name }}" {% if
+                                    model_name in camera.get_active_models() %}checked{% endif %}>
+                                <span class="slider"></span>
+                                <span class="toggle-label">
+                                    {% if model_name == 'person' %}
+                                    Crowd Detection <small>(5+ people)</small>
+                                    {% else %}
+                                    {{ model_config.description }}
+                                    {% endif %}
+                                </span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <p class="detection-info"
+                        style="font-size: 0.85em; color: var(--text-secondary); margin-top: 0.5rem;">
+                        🚨 Alerts when crowd detected in view
+                    </p>
+                    <button id="applyDetectionBtn" class="btn btn-success btn-block">Apply Detection</button>
+                    <button id="stopDetectionBtn" class="btn btn-danger btn-block">Stop All Detection</button>
+                </div>
+
+                <!-- Recent Detections -->
+                <div class="panel">
+                    <h3>Recent Detections</h3>
+                    <div class="detection-log" id="detectionLog">
+                        {% if recent_detections %}
+                        {% for detection in recent_detections %}
+                        <div class="detection-entry">
+                            <div class="detection-header">
+                                <span class="detection-model">{{ detection.model_name }}</span>
+                                <span class="detection-confidence">{{ (detection.confidence * 100)|int }}%</span>
+                            </div>
+                            <div class="detection-time">{{ detection.timestamp.strftime('%H:%M:%S') }}</div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p class="no-data">No recent detections</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Restricted Zones -->
+                <div class="panel">
+                    <h3>Restricted Zones</h3>
+                    <p class="zone-info">Person alerts only trigger in marked zones</p>
+
+                    <div class="zone-controls">
+                        <button id="drawZoneBtn" class="btn btn-primary btn-block">
+                            <span>📍</span> Draw New Zone
+                        </button>
+                        <button id="cancelZoneBtn" class="btn btn-danger btn-block" style="display:none;">
+                            Cancel Drawing
+                        </button>
+                    </div>
+
+                    <div class="zone-list" id="zoneList">
+                        <p class="no-data">No zones defined</p>
+                    </div>
+                </div>
+
+                <!-- Camera Info -->
+                <div class="panel">
+                    <h3>Camera Information</h3>
+                    <div class="info-grid">
+                        <div class="info-row">
+                            <span class="info-label">Location:</span>
+                            <span class="info-value">{{ camera.location or 'N/A' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Source:</span>
+                            <span class="info-value">{{ camera.source }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Status:</span>
+                            <span class="info-value {{ 'status-active' if camera.is_active else 'status-inactive' }}">
+                                {{ 'Active' if camera.is_active else 'Inactive' }}
+                            </span>
+                        </div>
+                    </div>
+                    <a href="{{ url_for('camera_detections_page', camera_id=camera.id) }}"
+                        class="btn btn-primary btn-block" style="margin-top: 1rem;">
+                        📊 View Detection History
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Alert Modal -->
+    <div id="manualAlertModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Send Manual Alert</h3>
+                <span class="close">&times;</span>
+            </div>
+            <form id="manualAlertForm">
+                <div class="form-group">
+                    <label for="alertMessage">Alert Message</label>
+                    <textarea id="alertMessage" name="message" rows="4" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-warning">Send Alert</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const cameraId = {{ camera.id }};
+    </script>
+    <script src="{{ url_for('static', filename='js/zone_manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    <script>
+        // Initialize zone manager when video loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.querySelector('.fullscreen-feed');
+
+            // Wait for video to load
+            video.addEventListener('load', () => {
+                zoneManager = new ZoneManager(video, cameraId);
+            });
+
+            // Initialize immediately if already loaded
+            if (video.complete) {
+                zoneManager = new ZoneManager(video, cameraId);
+            }
+
+            // Zone drawing controls
+            const drawZoneBtn = document.getElementById('drawZoneBtn');
+            const cancelZoneBtn = document.getElementById('cancelZoneBtn');
+
+            if (drawZoneBtn) {
+                drawZoneBtn.addEventListener('click', () => {
+                    if (!zoneManager) {
+                        zoneManager = new ZoneManager(video, cameraId);
+                    }
+                    zoneManager.startDrawing();
+                    drawZoneBtn.style.display = 'none';
+                    cancelZoneBtn.style.display = 'block';
+                });
+            }
+
+            if (cancelZoneBtn) {
+                cancelZoneBtn.addEventListener('click', () => {
+                    if (zoneManager) {
+                        zoneManager.cancelDrawing();
+                    }
+                    drawZoneBtn.style.display = 'block';
+                    cancelZoneBtn.style.display = 'none';
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>

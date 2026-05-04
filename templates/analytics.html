@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CEMSS Analytics Dashboard — Real-time detection statistics and visualizations.">
+    <title>Analytics Dashboard — CEMSS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        /* Analytics Dashboard — uses CEMSS global vars from style.css */
+
+        body {
+            background: var(--bg-primary);
+            min-height: 100vh;
+        }
+
+
+
+        /* Container */
+        .analytics-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Page Header */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .page-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .page-title h1 {
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--accent-success);
+            padding: 0.25rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-success);
+            border-radius: 50%;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* Period Selector */
+        .period-selector {
+            display: flex;
+            gap: 0.25rem;
+            background: var(--bg-tertiary);
+            padding: 0.25rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .period-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .period-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .period-btn.active {
+            background: var(--accent-primary);
+            color: #fff;
+        }
+
+        /* Stats Grid - 5 columns */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 1200px) {
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 500px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.25rem;
+            transition: all 0.2s;
+        }
+
+        .stat-card:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .stat-icon.blue {
+            background: rgba(88, 166, 255, 0.15);
+        }
+
+        .stat-icon.green {
+            background: rgba(63, 185, 80, 0.15);
+        }
+
+        .stat-icon.orange {
+            background: rgba(210, 153, 34, 0.15);
+        }
+
+        .stat-icon.red {
+            background: rgba(248, 81, 73, 0.15);
+        }
+
+        .stat-icon.purple {
+            background: rgba(168, 85, 247, 0.15);
+        }
+
+        .stat-trend {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .trend-up {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--accent-success);
+        }
+
+        .trend-down {
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--accent-danger);
+        }
+
+        .trend-neutral {
+            background: rgba(139, 148, 158, 0.15);
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Charts Grid */
+        .charts-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .charts-row.equal {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        @media (max-width: 1024px) {
+
+            .charts-row,
+            .charts-row.equal {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Chart Card - Boxed Design */
+        .chart-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+        }
+
+        .chart-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .chart-title-icon {
+            font-size: 1rem;
+        }
+
+        .chart-body {
+            padding: 1.25rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+
+        .chart-container.large {
+            height: 320px;
+        }
+
+        .chart-container.small {
+            height: 240px;
+        }
+
+        /* Heatmap Section */
+        .heatmap-wrapper {
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+        }
+
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: 50px repeat(24, 1fr);
+            gap: 2px;
+            min-width: 650px;
+        }
+
+        .heatmap-corner {}
+
+        .heatmap-hour-label {
+            text-align: center;
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            padding: 0.25rem 0;
+        }
+
+        .heatmap-row {
+            display: contents;
+        }
+
+        .heatmap-day-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            padding-right: 0.5rem;
+        }
+
+        .heatmap-cell {
+            aspect-ratio: 1;
+            min-height: 20px;
+            min-width: 20px;
+            border-radius: 3px;
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+
+        .heatmap-cell:hover {
+            transform: scale(1.15);
+            z-index: 5;
+        }
+
+        .heatmap-legend {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .heatmap-legend-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .heatmap-legend-scale {
+            display: flex;
+            gap: 2px;
+        }
+
+        .heatmap-legend-item {
+            width: 14px;
+            height: 14px;
+            border-radius: 2px;
+        }
+
+        /* Alerts Table */
+        .alerts-wrapper {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .alerts-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .alerts-table th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .alerts-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+        }
+
+        .alerts-table tbody tr:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .alerts-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .badge-low {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--accent-success);
+        }
+
+        .badge-medium {
+            background: rgba(210, 153, 34, 0.15);
+            color: var(--accent-warning);
+        }
+
+        .badge-high {
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--accent-danger);
+        }
+
+        .badge-critical {
+            background: rgba(168, 85, 247, 0.15);
+            color: var(--accent-purple);
+        }
+
+        .type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.2rem 0.5rem;
+            background: rgba(88, 166, 255, 0.1);
+            color: var(--accent-primary);
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(13, 17, 23, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.2s;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        .loading-text {
+            margin-top: 1rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* No Data State */
+        .no-data {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .no-data-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.5;
+        }
+
+        .no-data-text {
+            font-size: 0.9rem;
+        }
+
+        /* Full Width */
+        .full-width {
+            grid-column: 1 / -1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading analytics...</div>
+    </div>
+
+    {% include 'navbar.html' %}
+
+    <div class="analytics-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="page-title">
+                <h1>📊 Analytics Dashboard</h1>
+                <span class="live-badge">
+                    <span class="live-dot"></span>
+                    Live
+                </span>
+            </div>
+            <div class="period-selector">
+                <button class="period-btn active" data-period="24h">24 Hours</button>
+                <button class="period-btn" data-period="7d">7 Days</button>
+                <button class="period-btn" data-period="30d">30 Days</button>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon blue">📹</div>
+                    <span class="stat-trend trend-neutral" id="detectionsTrend">−</span>
+                </div>
+                <div class="stat-value" id="totalDetections">0</div>
+                <div class="stat-label">Total Detections</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon green">🔔</div>
+                    <span class="stat-trend trend-neutral" id="alertsTrend">−</span>
+                </div>
+                <div class="stat-value" id="totalAlerts">0</div>
+                <div class="stat-label">Alerts Sent</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon orange">📷</div>
+                    <span class="stat-trend trend-neutral" id="camerasTrend">−</span>
+                </div>
+                <div class="stat-value" id="activeCameras">0</div>
+                <div class="stat-label">Active Cameras</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon red">⚠️</div>
+                    <span class="stat-trend trend-neutral" id="severityTrend">−</span>
+                </div>
+                <div class="stat-value" id="criticalEvents">0</div>
+                <div class="stat-label">High Severity</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon purple">🎯</div>
+                </div>
+                <div class="stat-value" id="topCamera" style="font-size: 1.1rem;">--</div>
+                <div class="stat-label">Most Active Camera</div>
+            </div>
+        </div>
+
+        <!-- Charts Row 1: Timeline + Types -->
+        <div class="charts-row">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">
+                        <span class="chart-title-icon">📈</span>
+                        Detection Timeline
+                    </h3>
+                </div>
+                <div class="chart-body">
+                    <div class="chart-container large">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">
+                        <span class="chart-title-icon">🎨</span>
+                        Detection Types
+                    </h3>
+                </div>
+                <div class="chart-body">
+                    <div class="chart-container">
+                        <canvas id="typeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row 2: Camera + Radar -->
+        <div class="charts-row equal">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">
+                        <span class="chart-title-icon">📊</span>
+                        Camera Activity
+                    </h3>
+                </div>
+                <div class="chart-body">
+                    <div class="chart-container small">
+                        <canvas id="cameraChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3 class="chart-title">
+                        <span class="chart-title-icon">🕐</span>
+                        Hourly Pattern
+                    </h3>
+                </div>
+                <div class="chart-body">
+                    <div class="chart-container small">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Heatmap -->
+        <div class="charts-row">
+            <div class="chart-card full-width">
+                <div class="chart-header">
+                    <h3 class="chart-title">
+                        <span class="chart-title-icon">🗓️</span>
+                        Weekly Activity Heatmap
+                    </h3>
+                </div>
+                <div class="chart-body">
+                    <div class="heatmap-wrapper">
+                        <div class="heatmap-grid" id="heatmapGrid"></div>
+                    </div>
+                    <div class="heatmap-legend">
+                        <span class="heatmap-legend-label">Less</span>
+                        <div class="heatmap-legend-scale">
+                            <div class="heatmap-legend-item" style="background: rgba(88, 166, 255, 0.1)"></div>
+                            <div class="heatmap-legend-item" style="background: rgba(88, 166, 255, 0.3)"></div>
+                            <div class="heatmap-legend-item" style="background: rgba(88, 166, 255, 0.5)"></div>
+                            <div class="heatmap-legend-item" style="background: rgba(88, 166, 255, 0.7)"></div>
+                            <div class="heatmap-legend-item" style="background: rgba(88, 166, 255, 0.9)"></div>
+                        </div>
+                        <span class="heatmap-legend-label">More</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Alerts Table -->
+        <div class="charts-row">
+            <div class="chart-card full-width">
+                <div class="chart-header">
+                    <h3 class="chart-title">
+                        <span class="chart-title-icon">🔔</span>
+                        Recent Alerts
+                    </h3>
+                </div>
+                <div class="chart-body" style="padding: 0;">
+                    <div class="alerts-wrapper">
+                        <table class="alerts-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Camera</th>
+                                    <th>Detection Type</th>
+                                    <th>Priority</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alertsTableBody">
+                                <tr>
+                                    <td colspan="4" class="no-data">
+                                        <div class="no-data-icon">📭</div>
+                                        <div class="no-data-text">Loading alerts...</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/analytics.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="description" content="CEMSS Camera Page — Live surveillance feeds and AI detection monitoring.">
+    <title>Camera Page — CEMSS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_layout.css') }}">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Dashboard extra styles */
+        .system-status-bar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.5rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .status-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+        }
+
+        .status-dot.online  { background: var(--accent-success); box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+        .status-dot.offline { background: var(--text-secondary); }
+        .status-dot.warning { background: var(--accent-warning); }
+
+        .status-bar-time { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+        .dashboard-welcome {
+            background: linear-gradient(135deg, rgba(0,240,255,0.06) 0%, rgba(124,58,237,0.04) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .welcome-text h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0 0 0.2rem;
+        }
+
+        .welcome-text p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin: 0;
+        }
+
+        .welcome-actions { display: flex; gap: 0.75rem; }
+    </style>
+</head>
+
+<body>
+    <!-- Page Loader -->
+    <div class="page-loader" id="pageLoader">
+        <div class="loader-logo">
+            <span>C</span><span>E</span><span>M</span><span>S</span><span>S</span>
+        </div>
+        <div class="loader-spinner"></div>
+        <p class="loader-text">Loading surveillance system...</p>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Modern Navigation Bar -->
+    {% include 'navbar.html' %}
+
+    <!-- System Status Bar -->
+    <div class="system-status-bar">
+        <div class="status-item">
+            <div class="status-dot online"></div>
+            <span>System Online</span>
+        </div>
+        <div class="status-item">
+            <div class="status-dot online"></div>
+            <span>AI Detection Active</span>
+        </div>
+        <div class="status-item">
+            <span>📹 {{ cameras|length }} Camera{{ 's' if cameras|length != 1 else '' }}</span>
+        </div>
+        <div class="status-bar-time" id="statusBarTime"></div>
+    </div>
+
+    <div class="container">
+        <!-- Welcome Header -->
+        <div class="dashboard-welcome">
+            <div class="welcome-text">
+                <h2>📷 Camera Page</h2>
+                <p>Live feeds and real-time AI detection monitoring</p>
+            </div>
+            <div class="welcome-actions">
+                {% if user.is_admin %}
+                <button id="addCameraBtn" class="btn btn-primary">+ Add Camera</button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Two-column layout -->
+        <div class="dashboard-grid">
+            <!-- Left column: Cameras -->
+            <div class="cameras-section">
+                <div class="camera-grid" id="cameraGrid">
+                    {% if cameras %}
+                    {% for camera in cameras %}
+                    <div class="camera-card" data-camera-id="{{ camera.id }}">
+                        <div class="camera-header">
+                            <h3>{{ camera.name }}</h3>
+                            <span class="camera-status {{ 'active' if camera.is_active else 'inactive' }}">
+                                {{ 'Active' if camera.is_active else 'Inactive' }}
+                            </span>
+                        </div>
+
+                        <div class="camera-feed"
+                            onclick="window.location.href='{{ url_for('camera_view', camera_id=camera.id) }}'">
+                            <img src="{{ url_for('video_stream', camera_id=camera.id) }}" alt="{{ camera.name }}"
+                                class="feed-image"
+                                onerror="this.parentElement.innerHTML='<div class=\'chart-error\'><div class=\'chart-error-icon\'>📷</div><p>Feed unavailable</p></div>'">
+                        </div>
+
+                        <div class="camera-info">
+                            <p class="camera-location">{{ camera.location or 'No location' }}</p>
+                            <div class="camera-indicators">
+                                {% if camera.detection_enabled %}
+                                <span class="indicator detection-on">Detection ON</span>
+                                {% endif %}
+                                {% if camera.recording_enabled %}
+                                <span class="indicator recording-on">Recording</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="camera-actions">
+                            <a href="{{ url_for('camera_view', camera_id=camera.id) }}"
+                                class="btn btn-sm btn-primary">View</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="empty-state-card">
+                        <div class="empty-state-icon">📷</div>
+                        <h3 class="empty-state-title">No Cameras Available</h3>
+                        <p class="empty-state-text">
+                            {% if user.is_admin %}
+                            Get started by adding your first camera.
+                            {% else %}
+                            Contact your administrator to add cameras.
+                            {% endif %}
+                        </p>
+                        {% if user.is_admin %}
+                        <button class="btn btn-primary" onclick="document.getElementById('addCameraBtn').click()">+ Add
+                            Camera</button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Right sidebar: Briefing & Recent Events -->
+            <div class="sidebar-section">
+                <!-- System Briefing Card -->
+                <div class="panel">
+                    <div class="briefing-header">
+                        <h3>🤖 System Briefing</h3>
+                        <button id="refreshBriefingBtn" class="btn btn-sm btn-secondary">↻</button>
+                    </div>
+                    <div class="briefing-time-info">
+                        <span class="briefing-time" id="briefingTime">Last 15 minutes</span>
+                    </div>
+                    <div class="briefing-content" id="briefingContent">
+                        <div class="briefing-loading">
+                            <div class="loader-spinner"></div>
+                            <p>Analyzing recent activity...</p>
+                        </div>
+                    </div>
+                    <div class="briefing-footer">
+                        <small id="briefingGenerated">Generated by: Template</small>
+                    </div>
+                </div>
+
+                <!-- Recent Events Card -->
+                <div class="panel">
+                    <div class="events-header">
+                        <h3>📋 Recent Detections</h3>
+                        <button id="refreshEventsBtn" class="btn btn-sm btn-secondary">↻</button>
+                    </div>
+                    <div class="events-content" id="eventsContent">
+                        <div class="events-loading">
+                            <div class="loader-spinner"></div>
+                            <p>Loading detections...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Camera Modal -->
+    <div id="addCameraModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Camera</h3>
+                <span class="close">&times;</span>
+            </div>
+            <form id="addCameraForm">
+                <div class="form-group">
+                    <label for="cameraName">Camera Name</label>
+                    <input type="text" id="cameraName" name="name" required placeholder="e.g., Front Door Camera">
+                </div>
+                <div class="form-group">
+                    <label for="cameraSource">Source (RTSP URL or device index)</label>
+                    <input type="text" id="cameraSource" name="source" placeholder="rtsp://... or 0" required>
+                    <small>Examples: rtsp://192.168.1.100:554/stream or 0 for webcam</small>
+                </div>
+                <div class="form-group">
+                    <label for="cameraLocation">Location (optional)</label>
+                    <input type="text" id="cameraLocation" name="location" placeholder="e.g., Main Entrance">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" id="addCameraSubmit">Add Camera</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // Hide page loader when content is ready
+        window.addEventListener('load', function () {
+            const loader = document.getElementById('pageLoader');
+            loader.classList.add('fade-out');
+            setTimeout(() => loader.classList.add('hidden'), 300);
+        });
+
+        // Live clock in status bar
+        (function() {
+            const el = document.getElementById('statusBarTime');
+            if (!el) return;
+            function tick() {
+                const now = new Date();
+                el.textContent = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }
+            tick();
+            setInterval(tick, 1000);
+        })();
+
+        // Toast notification function (global)
+        window.showToast = function (message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+
+            const icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+            toast.innerHTML = `<span>${icons[type] || 'ℹ'}</span><span>${message}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        };
+
+        // Add loading state to form submission
+        document.getElementById('addCameraForm')?.addEventListener('submit', function () {
+            const btn = document.getElementById('addCameraSubmit');
+            btn.classList.add('loading');
+        });
+
+        // User dropdown is now handled in navbar.html
+
+
+        // Dashboard Briefing
+        async function fetchDashboardBriefing() {
+            try {
+                const response = await fetch('/api/dashboard/briefing?time_window=15');
+                const data = await response.json();
+
+                const contentDiv = document.getElementById('briefingContent');
+                const generatedSpan = document.getElementById('briefingGenerated');
+
+                if (data.success) {
+                    // Format briefing text (support markdown-like formatting)
+                    let briefingHTML = data.briefing
+                        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') // Bold
+                        .replace(/\n/g, '<br>'); // Line breaks
+
+                    contentDiv.innerHTML = `<div class="briefing-text">${briefingHTML}</div>`;
+
+                    // Update footer
+                    const generatedBy = data.generated_by === 'llm' ? 'LLM (Ollama)' : 'Template';
+                    const timestamp = new Date(data.timestamp).toLocaleTimeString();
+                    generatedSpan.textContent = `Generated by: ${generatedBy} at ${timestamp}`;
+                } else {
+                    contentDiv.innerHTML = `<div class="briefing-error">
+                        <p>⚠️ ${data.briefing || 'Unable to generate briefing'}</p>
+                    </div>`;
+                }
+            } catch (error) {
+                console.error('Error fetching briefing:', error);
+                document.getElementById('briefingContent').innerHTML = `<div class="briefing-error">
+                    <p>⚠️ Failed to load briefing</p>
+                </div>`;
+            }
+        }
+
+        //  Load briefing on page load
+        fetchDashboardBriefing();
+
+        // Auto-refresh briefing every 60 seconds
+        setInterval(fetchDashboardBriefing, 60000);
+
+        // Manual refresh button
+        document.getElementById('refreshBriefingBtn')?.addEventListener('click', function () {
+            this.classList.add('loading');
+            fetchDashboardBriefing().then(() => {
+                this.classList.remove('loading');
+                showToast('Briefing updated', 'success');
+            });
+        });
+
+        // Recent Events Fetching
+        async function fetchRecentEvents() {
+            try {
+                const response = await fetch('/api/detections/recent?limit=10');
+                const data = await response.json();
+
+                const contentDiv = document.getElementById('eventsContent');
+
+                if (data.detections && data.detections.length > 0) {
+                    let eventsHTML = '<div class="detection-log">';
+
+                    data.detections.forEach(detection => {
+                        // Format date and time
+                        const timestamp = new Date(detection.timestamp);
+                        const date = timestamp.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric'
+                        });
+                        const time = timestamp.toLocaleTimeString('en-US', {
+                            hour12: false,
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        });
+
+                        eventsHTML += `
+                            <div class="detection-entry">
+                                <div class="detection-header">
+                                    <span class="detection-model">${detection.model_name}</span>
+                                    <span class="detection-confidence">${Math.round(detection.confidence * 100)}%</span>
+                                </div>
+                                <div class="detection-time">${date} ${time}</div>
+                            </div>
+                        `;
+                    });
+
+                    eventsHTML += '</div>';
+                    contentDiv.innerHTML = eventsHTML;
+                } else {
+                    contentDiv.innerHTML = '<p class="no-data">No recent detections</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching events:', error);
+                document.getElementById('eventsContent').innerHTML = `
+                    <div class="events-error">
+                        <p>⚠️ Failed to load events</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Load events on page load
+        fetchRecentEvents();
+
+        // Auto-refresh events every 5 seconds for real-time monitoring
+        setInterval(fetchRecentEvents, 5000);
+
+        // Manual refresh button for events
+        document.getElementById('refreshEventsBtn')?.addEventListener('click', function () {
+            this.classList.add('loading');
+            fetchRecentEvents().then(() => {
+                this.classList.remove('loading');
+                showToast('Events updated', 'success');
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,8 @@
+names:
+  0: NonViolence
+  1: Violence
+nc: 2
+path: C:\Users\anina\OneDrive\Desktop\Project\CASS\v11.1\models\violence_detection\prepared_frames
+test: test
+train: train
+val: val

@@ -1,0 +1,8 @@
+names:
+- NonFight
+- Fight
+nc: 2
+path: C:\Users\anina\OneDrive\Desktop\Project\CASS\v11.1\models\violence_detection\prepared
+test: test
+train: train
+val: val

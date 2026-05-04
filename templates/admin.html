@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - CASS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <!-- Camera Management Section -->
+        <h2>Camera Management</h2>
+        <div class="admin-section">
+            <div class="section-header">
+                <h3>Cameras</h3>
+                <button id="addCameraBtn" class="btn btn-primary">+ Add Camera</button>
+            </div>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Location</th>
+                        <th>Source</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for camera in cameras %}
+                    <tr>
+                        <td>{{ camera.name }}</td>
+                        <td>{{ camera.location or 'N/A' }}</td>
+                        <td>{{ camera.source[:30] }}...</td>
+                        <td>
+                            <span
+                                class="badge {% if camera.is_active %}badge-success{% else %}badge-secondary{% endif %}">
+                                {{ 'Active' if camera.is_active else 'Inactive' }}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary edit-camera" data-camera-id="{{ camera.id }}"
+                                data-camera-name="{{ camera.name }}" data-camera-location="{{ camera.location or '' }}"
+                                data-camera-source="{{ camera.source }}">
+                                Edit
+                            </button>
+                            <button class="btn btn-sm btn-danger delete-camera" data-camera-id="{{ camera.id }}"
+                                data-camera-name="{{ camera.name }}">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- User Management Section -->
+        <h2>User Management</h2>
+
+        <div class="admin-section">
+            <div class="section-header">
+                <h3>Users</h3>
+                <button id="addUserBtn" class="btn btn-primary">+ Add User</button>
+            </div>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>WhatsApp</th>
+                        <th>Status</th>
+                        <th>Admin</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.username }}</td>
+                        <td>{{ user.email or 'N/A' }}</td>
+                        <td>{{ user.phone_number or 'N/A' }}</td>
+                        <td>
+                            {% if user.is_approved %}
+                            <span class="badge badge-success">Approved</span>
+                            {% else %}
+                            <span class="badge badge-warning">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ 'Yes' if user.is_admin else 'No' }}</td>
+                        <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            {% if not user.is_approved %}
+                            <button class="btn btn-sm btn-success approve-user" data-user-id="{{ user.id }}"
+                                data-username="{{ user.username }}">
+                                Approve
+                            </button>
+                            {% else %}
+                            <button class="btn btn-sm btn-warning reject-user" data-user-id="{{ user.id }}"
+                                data-username="{{ user.username }}">
+                                Revoke
+                            </button>
+                            {% endif %}
+
+                            {% if user.username != current_user.username %}
+                            <button class="btn btn-sm btn-secondary toggle-admin" data-user-id="{{ user.id }}"
+                                data-username="{{ user.username }}" data-is-admin="{{ user.is_admin }}">
+                                {{ 'Revoke Admin' if user.is_admin else 'Make Admin' }}
+                            </button>
+                            <button class="btn btn-sm btn-secondary edit-permissions" data-user-id="{{ user.id }}">
+                                Permissions
+                            </button>
+                            <button class="btn btn-sm btn-danger delete-user" data-user-id="{{ user.id }}"
+                                data-username="{{ user.username }}">
+                                Delete
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Permission Requests Section -->
+        <h2>Permission Requests <span id="pendingCount" class="pending-badge" style="display: none;">0</span></h2>
+
+        <div class="admin-section">
+            <p class="help-text">Review and manage user permission requests</p>
+            <div id="permissionRequestsList">
+                <div class="no-data">Loading permission requests...</div>
+            </div>
+        </div>
+
+        <!-- Permission Management Overview -->
+        <h2>Permission Overview</h2>
+
+        <div class="admin-section">
+            <div class="permissions-matrix">
+                <p class="help-text">All active camera permissions across users</p>
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Camera</th>
+                            <th>View</th>
+                            <th>Control</th>
+                            <th>Alerts</th>
+                            <th>Models</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for perm in permissions %}
+                        <tr>
+                            <td>{{ perm.user.username if perm.user else 'Unknown (ID: ' + perm.user_id|string + ')' }}
+                            </td>
+                            <td>{{ perm.camera.name if perm.camera else 'Unknown (ID: ' + perm.camera_id|string + ')' }}
+                            </td>
+                            <td>{{ '✓' if perm.can_view else '✗' }}</td>
+                            <td>{{ '✓' if perm.can_control else '✗' }}</td>
+                            <td>{{ '✓' if perm.receive_alerts else '✗' }}</td>
+                            <td>{{ perm.get_allowed_models()|length }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger revoke-permission"
+                                    data-permission-id="{{ perm.id }}"
+                                    data-username="{{ perm.user.username if perm.user else 'Unknown' }}"
+                                    data-camera-name="{{ perm.camera.name if perm.camera else 'Unknown' }}">
+                                    Revoke
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New User</h3>
+                <span class="close">&times;</span>
+            </div>
+            <form id="addUserForm">
+                <div class="form-group">
+                    <label for="newUsername">Username</label>
+                    <input type="text" id="newUsername" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="newEmail">Email</label>
+                    <input type="email" id="newEmail" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="newPhone">WhatsApp Number</label>
+                    <input type="tel" id="newPhone" name="phone_number" placeholder="+91XXXXXXXXXX">
+                    <small>Include country code for WhatsApp alerts</small>
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">Password</label>
+                    <input type="password" id="newPassword" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label class="toggle-switch toggle-warning">
+                        <input type="checkbox" id="newIsAdmin" name="is_admin">
+                        <span class="slider"></span>
+                        <span class="toggle-label">Administrator</span>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="toggle-switch toggle-success">
+                        <input type="checkbox" id="newIsApproved" name="is_approved" checked>
+                        <span class="slider"></span>
+                        <span class="toggle-label">Pre-approved (user can login immediately)</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary">Create User</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Permissions Modal -->
+    <div id="editPermissionsModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Edit User Permissions</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div id="permissionsForm">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirm Action</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div id="confirmMessage"></div>
+            <div style="margin-top: 1.5rem; text-align: right;">
+                <button id="confirmCancel" class="btn btn-secondary" style="margin-right: 0.5rem;">Cancel</button>
+                <button id="confirmOk" class="btn btn-danger">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Camera Modal -->
+    <div id="addCameraModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Camera</h3>
+                <span class="close">&times;</span>
+            </div>
+            <form id="addCameraForm">
+                <div class="form-group">
+                    <label for="cameraName">Camera Name</label>
+                    <input type="text" id="cameraName" name="name" required placeholder="e.g., Front Door Camera">
+                </div>
+                <div class="form-group">
+                    <label for="cameraSource">Source (RTSP URL or device index)</label>
+                    <input type="text" id="cameraSource" name="source" placeholder="rtsp://... or 0" required>
+                    <small>Examples: rtsp://192.168.1.100:554/stream or 0 for webcam</small>
+                </div>
+                <div class="form-group">
+                    <label for="cameraLocation">Location (optional)</label>
+                    <input type="text" id="cameraLocation" name="location" placeholder="e.g., Main Entrance">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Add Camera</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Camera Modal -->
+    <div id="editCameraModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Camera</h3>
+                <span class="close">&times;</span>
+            </div>
+            <form id="editCameraForm">
+                <input type="hidden" id="editCameraId" name="camera_id">
+                <div class="form-group">
+                    <label for="editCameraName">Camera Name</label>
+                    <input type="text" id="editCameraName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="editCameraSource">Source (RTSP URL or device index)</label>
+                    <input type="text" id="editCameraSource" name="source" required>
+                    <small>Examples: rtsp://192.168.1.100:554/stream or 0 for webcam</small>
+                </div>
+                <div class="form-group">
+                    <label for="editCameraLocation">Location (optional)</label>
+                    <input type="text" id="editCameraLocation" name="location" placeholder="e.g., Main Entrance">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const cameras = {{ cameras_json | tojson | safe }};
+        const users = {{ users_json | tojson | safe }};
+        const permissions = {{ permissions_json | tojson | safe }};
+        const detectionModels = {{ detection_models.keys() | list | tojson | safe }};
+    </script>
+    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
+
+</html>

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CEMSS Detection History — Live timeline of all AI-detected security events.">
+    <title>Detection History — CEMSS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
+    <style>
+        /* ── Detections Page ── */
+        .detections-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .page-header-left h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .page-header-left p { color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem; }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        /* Live Indicator */
+        .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(34,197,94,0.1);
+            border: 1px solid rgba(34,197,94,0.25);
+            color: var(--accent-success);
+            padding: 0.4rem 0.85rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .live-dot {
+            width: 7px; height: 7px;
+            background: var(--accent-success);
+            border-radius: 50%;
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+            50% { box-shadow: 0 0 0 5px transparent; }
+        }
+
+        /* Stats Row */
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius);
+            padding: 1.2rem 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .summary-card::after {
+            content: attr(data-icon);
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 2rem;
+            opacity: 0.15;
+        }
+
+        .summary-card:hover { transform: translateY(-2px); border-color: var(--border-color); }
+
+        .summary-card.total   { border-top: 2px solid var(--accent-primary); }
+        .summary-card.danger  { border-top: 2px solid var(--accent-danger); }
+        .summary-card.warning { border-top: 2px solid var(--accent-warning); }
+        .summary-card.success { border-top: 2px solid var(--accent-success); }
+
+        .summary-value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1;
+            margin-bottom: 0.3rem;
+        }
+
+        .summary-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        /* Filter Controls */
+        .detection-controls {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 1rem 1.25rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            flex: 1;
+            min-width: 130px;
+        }
+
+        .filter-item label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .filter-item select {
+            padding: 0.55rem 0.75rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.2s;
+        }
+
+        .filter-item select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        /* Timeline */
+        .timeline-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .timeline-panel-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-tertiary);
+        }
+
+        .timeline-panel-header h2 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .timeline-body { padding: 1.5rem; }
+
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 10px; top: 0; bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, var(--accent-primary), transparent);
+            opacity: 0.3;
+        }
+
+        .date-group { margin-bottom: 2rem; }
+
+        .date-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .date-header-icon {
+            position: absolute;
+            left: -28px;
+            width: 24px; height: 24px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem;
+            color: #020812;
+            z-index: 2;
+        }
+
+        .date-header-text {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .detection-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius);
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.75rem;
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .detection-card:hover {
+            border-color: var(--border-color);
+            transform: translateX(4px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .detection-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+        }
+
+        .detection-type {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .type-icon {
+            width: 38px; height: 38px;
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .type-icon.person     { background: rgba(34,197,94,0.15); }
+        .type-icon.fall       { background: rgba(255,77,109,0.15); }
+        .type-icon.fire       { background: rgba(249,115,22,0.15); }
+        .type-icon.suspicious { background: rgba(100,116,139,0.15); }
+        .type-icon.violence   { background: rgba(168,85,247,0.15); }
+        .type-icon.motion     { background: rgba(59,130,246,0.15); }
+        .type-icon.crowd      { background: rgba(0,240,255,0.15); }
+        .type-icon.default    { background: rgba(139,148,158,0.15); }
+
+        .detection-title {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-transform: capitalize;
+        }
+
+        .detection-time-stamp {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.2rem;
+        }
+
+        .detection-badge-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .severity-badge {
+            padding: 0.3rem 0.7rem;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .severity-badge.CRITICAL { background: rgba(255,77,109,0.15); color: var(--accent-danger); border: 1px solid rgba(255,77,109,0.2); }
+        .severity-badge.HIGH     { background: rgba(249,115,22,0.15); color: #F97316; border: 1px solid rgba(249,115,22,0.2); }
+        .severity-badge.MEDIUM   { background: rgba(245,158,11,0.15); color: var(--accent-warning); border: 1px solid rgba(245,158,11,0.2); }
+        .severity-badge.LOW      { background: rgba(34,197,94,0.15); color: var(--accent-success); border: 1px solid rgba(34,197,94,0.2); }
+
+        .detection-body {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 1rem;
+            align-items: start;
+        }
+
+        .detection-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.82rem;
+        }
+
+        .meta-icon { width: 18px; text-align: center; }
+        .meta-label { color: var(--text-secondary); min-width: 70px; }
+        .meta-value { color: var(--text-primary); font-weight: 500; }
+
+        .confidence-bar {
+            height: 4px;
+            background: var(--bg-secondary);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 0.4rem;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-primary), #7C3AED);
+            transition: width 0.5s ease;
+        }
+
+        /* Empty / Error */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon { font-size: 4rem; opacity: 0.35; margin-bottom: 1rem; }
+        .empty-state-text { font-size: 1rem; }
+
+        /* Pagination */
+        .pagination-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .pagination-info { color: var(--text-secondary); font-size: 0.85rem; }
+
+        @media (max-width: 768px) {
+            .detection-controls { flex-direction: column; }
+            .filter-item { min-width: 100%; }
+            .stats-summary { grid-template-columns: 1fr 1fr; }
+            .detection-body { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+
+<body>
+    {% include 'navbar.html' %}
+
+    <div class="detections-container">
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="page-header-left">
+                <h1>📋 Detection History</h1>
+                <p>Real-time log of all AI-detected security events</p>
+            </div>
+            <div class="header-right">
+                <div class="live-badge">
+                    <div class="live-dot"></div>
+                    <span>Live — 5s refresh</span>
+                </div>
+                <button id="refreshBtn" class="btn btn-primary">↻ Refresh</button>
+            </div>
+        </div>
+
+        <!-- Stats Summary -->
+        <div class="stats-summary">
+            <div class="summary-card total" data-icon="🔍">
+                <div class="summary-value" id="totalCount">—</div>
+                <div class="summary-label">Total Detections</div>
+            </div>
+            <div class="summary-card danger" data-icon="🚨">
+                <div class="summary-value" id="criticalCount">—</div>
+                <div class="summary-label">Critical Events</div>
+            </div>
+            <div class="summary-card warning" data-icon="⚠️">
+                <div class="summary-value" id="highCount">—</div>
+                <div class="summary-label">High Priority</div>
+            </div>
+            <div class="summary-card success" data-icon="✅">
+                <div class="summary-value" id="lowCount">—</div>
+                <div class="summary-label">Low Priority</div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="detection-controls">
+            <div class="filter-item">
+                <label for="dateFilter">Time Period</label>
+                <select id="dateFilter">
+                    <option value="today">Today</option>
+                    <option value="yesterday">Yesterday</option>
+                    <option value="7days" selected>Last 7 Days</option>
+                    <option value="30days">Last 30 Days</option>
+                    <option value="all">All Time</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <label for="cameraFilter">Camera</label>
+                <select id="cameraFilter">
+                    <option value="">All Cameras</option>
+                    {% for camera in cameras %}
+                    <option value="{{ camera.id }}">{{ camera.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-item">
+                <label for="typeFilter">Detection Type</label>
+                <select id="typeFilter">
+                    <option value="">All Types</option>
+                    <option value="person">Person</option>
+                    <option value="fall">Fall</option>
+                    <option value="fire">Fire</option>
+                    <option value="suspicious">Suspicious</option>
+                    <option value="violence">Violence</option>
+                    <option value="motion">Motion</option>
+                    <option value="crowd">Crowd</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <label for="severityFilter">Severity</label>
+                <select id="severityFilter">
+                    <option value="">All Severities</option>
+                    <option value="CRITICAL">Critical</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Detection Timeline Panel -->
+        <div class="timeline-panel">
+            <div class="timeline-panel-header">
+                <h2>📅 Detection Timeline</h2>
+            </div>
+            <div class="timeline-body">
+                <div class="timeline" id="detectionTimeline">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⏳</div>
+                        <div class="empty-state-text">Loading detections...</div>
+                    </div>
+                </div>
+
+                <div class="pagination-controls" id="paginationControls" style="display:none;">
+                    <button id="prevPage" class="btn btn-secondary" disabled>← Previous</button>
+                    <span class="pagination-info" id="pageInfo">Page 1</span>
+                    <button id="nextPage" class="btn btn-secondary">Next →</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/detections.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+Flask==3.0.0
+Flask-Login==0.6.3
+Flask-SQLAlchemy==3.1.1
+Flask>=2.3.0
+Flask-Login>=0.6.0
+Flask-SQLAlchemy>=3.0.0
+Flask-SocketIO>=5.3.0
+SQLAlchemy==2.0.23
+Werkzeug>=2.3.0
+
+# Detection and Computer Vision
+ultralytics>=8.0.0
+opencv-python>=4.8.0
+torch>=2.0.0
+torchvision>=0.15.0
+pillow>=10.0.0
+matplotlib>=3.7.0
+numpy>=1.24.0
+scipy>=1.10.0
+python-dotenv>=1.0.0
+
+# Utilities
+python-engineio==4.9.0
+python-socketio==5.11.0
+
+# Phase 1 Dependencies
+psutil>=5.9.0          # CPU/memory monitoring
+GPUtil>=1.4.0          # GPU monitoring  
+reportlab>=4.0.0       # PDF generation
+pytest>=7.4.0          # Testing framework
+pytest-cov>=4.1.0      # Test coveragel
+
+# Monitoring Panel (optional - only for monitor_panel.py)
+# Pillow already listed above for image handling
+
+# WhatsApp Alerts
+pywhatkit>=5.4
+pyautogui
+
+# Reporting & Testing
+python-docx
+playwright
+pytest-playwright

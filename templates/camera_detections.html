@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ camera.name }} - Detection History - CASS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <div class="page-header">
+            <div class="header-content">
+                <a href="{{ url_for('camera_view', camera_id=camera.id) }}" class="btn btn-sm btn-secondary"
+                    style="margin-bottom: 1rem;">← Back to Camera</a>
+                <h2>{{ camera.name }} - Detection History</h2>
+                <p class="text-muted">Location: {{ camera.location or 'N/A' }}</p>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-bar">
+            <div class="filter-group">
+                <label for="modelFilter">Detection Type</label>
+                <select id="modelFilter">
+                    <option value="">All Types</option>
+                    <option value="person">Person</option>
+                    <option value="fall">Fall</option>
+                    <option value="phone">Phone</option>
+                    <option value="violence">Violence</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="limitFilter">Show</label>
+                <select id="limitFilter">
+                    <option value="25">25 entries</option>
+                    <option value="50" selected>50 entries</option>
+                    <option value="100">100 entries</option>
+                    <option value="200">200 entries</option>
+                </select>
+            </div>
+            <button id="refreshBtn" class="btn btn-primary">🔄 Refresh</button>
+        </div>
+
+        <!-- Stats Summary -->
+        <div class="stats-row" id="statsRow">
+            <div class="stat-card">
+                <span class="stat-value" id="totalDetections">-</span>
+                <span class="stat-label">Total Detections</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="personCount">-</span>
+                <span class="stat-label">Person Detections</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="fallCount">-</span>
+                <span class="stat-label">Fall Detections</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="phoneCount">-</span>
+                <span class="stat-label">Phone Detections</span>
+            </div>
+        </div>
+
+        <!-- Detection Table -->
+        <div class="panel">
+            <h3>Detection Log</h3>
+            <div class="table-responsive">
+                <table class="data-table" id="detectionsTable">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>Confidence</th>
+                            <th>Severity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detectionsBody">
+                        <tr>
+                            <td colspan="4" class="no-data">Loading detections...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <button id="prevPage" class="btn btn-sm" disabled>← Previous</button>
+                <span id="pageInfo">Page 1</span>
+                <button id="nextPage" class="btn btn-sm">Next →</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cameraId = {{ camera.id }};
+    </script>
+    <script src="{{ url_for('static', filename='js/camera_detections.js') }}"></script>
+</body>
+
+</html>

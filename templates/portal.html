@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Portal - CEMSS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .portal-container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+
+        /* Tabs */
+        .portal-tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; background: var(--bg-secondary); padding: 0.4rem; border-radius: 12px; border: 1px solid var(--border-color); }
+        .portal-tab { flex: 1; padding: 0.75rem 1rem; text-align: center; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--text-secondary); transition: all 0.25s ease; border: none; background: none; }
+        .portal-tab:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+        .portal-tab.active { background: var(--accent-primary); color: #000; box-shadow: 0 2px 12px rgba(0, 240, 255, 0.3); }
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Event Cards */
+        .events-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.25rem; }
+        .event-card { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; transition: transform 0.2s, box-shadow 0.2s; }
+        .event-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .event-title { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; }
+        .event-meta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-secondary); }
+        .event-meta span { display: flex; align-items: center; gap: 0.3rem; }
+        .event-desc { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem; line-height: 1.5; }
+        .event-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border-color); }
+        .attendee-count { font-size: 0.85rem; color: var(--accent-primary); font-weight: 500; }
+        .badge-status { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-upcoming { background: rgba(0,240,255,0.15); color: var(--accent-primary); }
+        .badge-live { background: rgba(57,255,20,0.15); color: var(--accent-success); }
+        .badge-completed { background: rgba(139,148,158,0.2); color: var(--text-secondary); }
+
+        /* Magazine Cards */
+        .mag-card { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
+        .mag-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
+        .mag-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+        .mag-content { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1rem; white-space: pre-wrap; max-height: 150px; overflow: hidden; }
+        .mag-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--text-secondary); }
+        .badge-pending { background: rgba(255,234,0,0.15); color: var(--accent-warning); }
+        .badge-approved { background: rgba(57,255,20,0.15); color: var(--accent-success); }
+        .badge-rejected { background: rgba(255,0,85,0.15); color: var(--accent-danger); }
+
+        /* Post Feed */
+        .post-composer { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; }
+        .post-composer textarea { width: 100%; padding: 0.75rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem; resize: none; font-family: inherit; min-height: 80px; }
+        .post-composer textarea:focus { outline: none; border-color: var(--accent-primary); }
+        .post-composer-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; }
+        .char-count { font-size: 0.8rem; color: var(--text-secondary); }
+        .post-item { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; margin-bottom: 0.75rem; }
+        .post-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+        .post-author { display: flex; align-items: center; gap: 0.75rem; }
+        .post-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--accent-primary); color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
+        .post-author-name { font-weight: 600; color: var(--text-primary); }
+        .post-time { font-size: 0.8rem; color: var(--text-secondary); }
+        .post-body { color: var(--text-primary); font-size: 0.95rem; line-height: 1.6; }
+        .post-delete { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1rem; padding: 0.25rem; }
+        .post-delete:hover { color: var(--accent-danger); }
+
+
+
+        /* Modals */
+        .portal-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1100; justify-content: center; align-items: center; }
+        .portal-modal-overlay.show { display: flex; }
+        .portal-modal { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 16px; padding: 2rem; width: 90%; max-width: 500px; }
+        .portal-modal h3 { color: var(--text-primary); margin-bottom: 1.5rem; font-size: 1.2rem; }
+        .portal-modal .form-group { margin-bottom: 1.25rem; }
+        .portal-modal .form-group label { display: block; margin-bottom: 0.4rem; color: var(--text-secondary); font-size: 0.9rem; }
+        .portal-modal .form-group input,
+        .portal-modal .form-group textarea,
+        .portal-modal .form-group select { width: 100%; padding: 0.7rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem; font-family: inherit; }
+        .portal-modal .form-group input:focus,
+        .portal-modal .form-group textarea:focus { outline: none; border-color: var(--accent-primary); }
+        .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; }
+
+        /* Empty State */
+        .empty-msg { text-align: center; padding: 3rem; color: var(--text-secondary); }
+        .empty-msg .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+
+        /* Section Header */
+        .section-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .section-top h3 { color: var(--text-primary); font-size: 1.1rem; }
+
+        @media (max-width: 600px) {
+            .portal-tabs { flex-direction: column; }
+            .events-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Detail Views */
+        .detail-header { border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; }
+        .detail-title { font-size: 1.5rem; font-weight: 800; color: var(--accent-primary); margin-bottom: 0.5rem; }
+        .detail-meta { display: flex; flex-wrap: wrap; gap: 1rem; color: var(--text-secondary); font-size: 0.9rem; }
+        .detail-body { color: var(--text-primary); line-height: 1.7; font-size: 1rem; margin-bottom: 2rem; white-space: pre-wrap; }
+        
+        .attendee-list { margin-top: 1.5rem; background: var(--bg-tertiary); border-radius: 8px; overflow: hidden; }
+        .attendee-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color); }
+        .attendee-item:last-child { border-bottom: none; }
+        .attendee-info { display: flex; flex-direction: column; }
+        .attendee-name { font-weight: 600; font-size: 0.9rem; }
+        .attendee-id { font-size: 0.75rem; color: var(--text-secondary); }
+        
+        .event-card { cursor: pointer; display: flex; flex-direction: column; }
+        .event-card-img { width: 100%; height: 160px; object-fit: cover; border-bottom: 1px solid var(--border-color); }
+        .event-card-content { padding: 1.25rem; flex: 1; display: flex; flex-direction: column; }
+        
+        .mag-card { cursor: pointer; position: relative; }
+        .mag-card-img { width: 100%; height: 180px; object-fit: cover; border-bottom: 1px solid var(--border-color); }
+        .mag-card-content { padding: 1.25rem; }
+        .mag-read-more { color: var(--accent-primary); font-weight: 600; cursor: pointer; margin-top: 0.5rem; display: inline-block; }
+
+        .detail-img { width: 100%; max-height: 400px; object-fit: cover; border-radius: 12px; margin-bottom: 1.5rem; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+        
+        /* Skeleton Loader */
+        .skeleton { background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite linear; border-radius: 8px; }
+        @keyframes skeleton-loading { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+        .skeleton-card { height: 300px; margin-bottom: 1rem; }
+
+        /* Micro-animations */
+        .event-card, .mag-card, .post-item { transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease; }
+        .event-card:hover, .mag-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 12px 40px rgba(0, 240, 255, 0.15); }
+
+        /* Toast Notifications */
+        #toastContainer { position: fixed; bottom: 2rem; right: 2rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.75rem; }
+        .toast { background: rgba(12, 16, 30, 0.95); border-left: 4px solid var(--accent-primary); color: white; padding: 1rem 1.5rem; border-radius: 8px; backdrop-filter: blur(10px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); min-width: 280px; animation: toastSlideIn 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28); }
+        @keyframes toastSlideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .toast-success { border-left-color: #00FF88; }
+        .toast-info { border-left-color: var(--accent-primary); }
+        .toast-error { border-left-color: var(--danger); }
+
+        /* Countdown */
+        .countdown { font-size: 0.75rem; font-weight: 700; color: var(--accent-primary); margin-top: 0.5rem; background: rgba(0, 240, 255, 0.05); padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        
+        .mag-description { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5; margin: 0.75rem 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+        /* Lightbox */
+        .lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); cursor: zoom-out; }
+        .lightbox.show { display: flex; animation: fadeIn 0.3s ease; }
+        .lightbox img { max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Trending Badge */
+        .badge-trending { background: linear-gradient(135deg, #FF4D6D, #FF00FF); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; margin-left: 0.5rem; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        /* Comments */
+        .comment-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color); }
+        .comment-item { margin-bottom: 0.75rem; font-size: 0.85rem; }
+        .comment-author { font-weight: 700; color: var(--accent-primary); margin-right: 0.5rem; }
+        .comment-text { color: var(--text-primary); }
+        .comment-time { font-size: 0.7rem; color: var(--text-secondary); margin-left: 0.5rem; }
+        .comment-input-group { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+        .comment-input { flex: 1; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; padding: 0.4rem 0.75rem; color: var(--text-primary); font-size: 0.85rem; }
+        
+        /* Search */
+        .search-container { margin-bottom: 1.5rem; position: relative; }
+        .search-input { width: 100%; padding: 0.75rem 1rem 0.75rem 2.5rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.95rem; }
+        .search-icon { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
+
+        /* Create Event Button Pulse */
+        .btn-create-event {
+            background: linear-gradient(135deg, var(--accent-primary), #0099CC);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: btnGlow 3s infinite;
+        }
+        @keyframes btnGlow {
+            0% { box-shadow: 0 0 15px rgba(0, 240, 255, 0.25); }
+            50% { box-shadow: 0 0 25px rgba(0, 240, 255, 0.45); }
+            100% { box-shadow: 0 0 15px rgba(0, 240, 255, 0.25); }
+        }
+
+        /* QR Code Styles */
+        .qr-pass-container { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 2rem; text-align: center; margin: 1.5rem 0; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        .qr-pass-title { font-weight: 800; color: var(--accent-primary); font-size: 1.2rem; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 2px; }
+        .qr-canvas-wrapper { background: white; padding: 15px; border-radius: 12px; display: inline-block; margin-bottom: 1rem; box-shadow: 0 4px 20px rgba(0, 240, 255, 0.2); }
+        .qr-pass-info { color: var(--text-secondary); font-size: 0.85rem; line-height: 1.4; }
+        
+        .qr-scanner-wrapper { width: 100%; max-width: 400px; margin: 0 auto; border-radius: 16px; overflow: hidden; border: 2px solid var(--accent-primary); box-shadow: 0 0 30px rgba(0, 240, 255, 0.2); }
+        #qr-reader { width: 100% !important; border: none !important; }
+        #qr-reader__dashboard_section_csr { margin-top: 10px !important; }
+        #qr-reader__status_span { color: var(--accent-primary) !important; font-weight: 600 !important; }
+        .qr-scanner-modal-body { text-align: center; }
+        .qr-scanner-hint { margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
+    {% include 'navbar.html' %}
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" onclick="this.classList.remove('show')">
+        <img id="lightboxImg" src="" alt="Zoomed view">
+    </div>
+
+    <div class="portal-container">
+        <!-- Search & Filter Bar -->
+        <div class="search-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="portalSearch" placeholder="Search events, articles or posts..." oninput="handleSearch()">
+        </div>
+
+        <!-- Tabs -->
+        <div class="portal-tabs">
+            <button class="portal-tab active" onclick="switchTab('events')" id="tab-events">🎉 Events</button>
+            <button class="portal-tab" onclick="switchTab('magazines')" id="tab-magazines">📰 Magazines</button>
+            <button class="portal-tab" onclick="switchTab('feed')" id="tab-feed">💬 Campus Feed</button>
+        </div>
+
+        <!-- EVENTS TAB -->
+        <div class="tab-content active" id="content-events">
+            <div class="section-top">
+                <h3>Campus Events</h3>
+                {% if current_user.role in ['faculty', 'admin'] or current_user.is_admin %}
+                <button class="btn btn-primary btn-create-event" onclick="resetEventModal(); openModal('eventModal')">
+                    <span style="font-size: 1.2rem; margin-right: 4px;">+</span> New Event
+                </button>
+                {% endif %}
+            </div>
+            <div class="events-grid" id="eventsGrid">
+                <div class="empty-msg"><div class="empty-icon">📅</div><p>Loading events...</p></div>
+            </div>
+        </div>
+
+        <!-- MAGAZINES TAB -->
+        <div class="tab-content" id="content-magazines">
+            <div class="section-top">
+                <h3>Magazine Submissions</h3>
+                <button class="btn btn-primary" onclick="openModal('magModal')">📝 Submit Article</button>
+            </div>
+            <div id="magazinesList">
+                <div class="empty-msg"><div class="empty-icon">📰</div><p>Loading magazines...</p></div>
+            </div>
+        </div>
+
+        <!-- CAMPUS FEED TAB -->
+        <div class="tab-content" id="content-feed">
+            <div class="post-composer">
+                <textarea id="postInput" placeholder="What's happening on campus?" maxlength="500" oninput="updateCharCount()"></textarea>
+                <div class="post-composer-footer">
+                    <span class="char-count" id="charCount">0 / 500</span>
+                    <button class="btn btn-primary" onclick="submitPost()">Post</button>
+                </div>
+            </div>
+            <div id="postsFeed">
+                <div class="empty-msg"><div class="empty-icon">💬</div><p>Loading posts...</p></div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Create Event Modal -->
+    <div class="portal-modal-overlay" id="eventModal">
+        <div class="portal-modal">
+            <h3>Create Event</h3>
+            <div class="form-group"><label>Event Name *</label><input type="text" id="evtTitle" placeholder="Enter event name"></div>
+            <div class="form-group"><label>Description</label><textarea id="evtDesc" rows="3" placeholder="Event description..."></textarea></div>
+            <div class="form-group"><label>Location</label><input type="text" id="evtLocation" placeholder="e.g. Main Auditorium"></div>
+            <div class="form-group"><label>Date & Time *</label><input type="datetime-local" id="evtDate"></div>
+            <div class="form-group"><label>Max Participants</label><input type="number" id="evtMax" value="100" min="1"></div>
+            <div class="form-group"><label>Event Poster (Image)</label><input type="file" id="evtImage" accept="image/*" class="comment-input" style="padding: 0.5rem;"></div>
+            <div class="form-group" style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                <input type="checkbox" id="evtWhatsApp" style="width:auto; margin:0;">
+                <label for="evtWhatsApp" style="margin:0; font-weight:500;">📲 Send WhatsApp Alert to all recipients</label>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('eventModal')">Cancel</button>
+                <button class="btn btn-primary" id="eventSubmitBtn" onclick="createEvent()">Create Event</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Magazine Modal -->
+    <div class="portal-modal-overlay" id="magModal">
+        <div class="portal-modal">
+            <h3>Submit Magazine Article</h3>
+            <div class="form-group"><label>Title *</label><input type="text" id="magTitle" placeholder="Article title"></div>
+            <div class="form-group"><label>Poster Photo (Cover) *</label><input type="file" id="magImage" accept="image/*" class="comment-input" style="padding: 0.5rem;"></div>
+            <div class="form-group"><label>Description (Short Intro)</label><textarea id="magDesc" rows="2" placeholder="Brief summary of the article..."></textarea></div>
+            <div class="form-group"><label>Article Content *</label><textarea id="magContent" rows="5" placeholder="Write your full article..."></textarea></div>
+            <div class="form-group"><label>Content Photo (Inside Article)</label><input type="file" id="magContentImage" accept="image/*" class="comment-input" style="padding: 0.5rem;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('magModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitMagazine()">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Detail Modal -->
+    <div class="portal-modal-overlay" id="eventDetailModal">
+        <div class="portal-modal" style="max-width: 700px;">
+            <div id="eventDetailContent"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('eventDetailModal')">Close</button>
+                <div id="eventDetailActions"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Magazine Detail Modal -->
+    <div class="portal-modal-overlay" id="magDetailModal">
+        <div class="portal-modal" style="max-width: 700px;">
+            <div id="magDetailContent"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('magDetailModal')">Close</button>
+                <div id="magDetailActions"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Pass Modal -->
+    <div class="portal-modal-overlay" id="qrPassModal">
+        <div class="portal-modal" style="max-width: 400px;">
+            <div class="qr-pass-container">
+                <div class="qr-pass-title">ENTRY PASS</div>
+                <div class="qr-canvas-wrapper">
+                    <div id="qrcode"></div>
+                </div>
+                <div class="qr-pass-info">
+                    <div id="qrStudentName" style="font-weight:700; color:var(--text-primary); font-size:1.1rem; margin-bottom:0.3rem"></div>
+                    <div id="qrEventTitle" style="color:var(--accent-primary); font-weight:600; margin-bottom:0.5rem"></div>
+                    <div style="font-size:0.75rem">Present this QR code at the entrance for verification.</div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" style="width:100%" onclick="closeModal('qrPassModal')">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Scanner Modal -->
+    <div class="portal-modal-overlay" id="qrScannerModal">
+        <div class="portal-modal" style="max-width: 450px;">
+            <h3>Scan Student QR</h3>
+            <div class="qr-scanner-modal-body">
+                <div class="qr-scanner-hint">Point the camera at the student's entry pass</div>
+                <div class="qr-scanner-wrapper">
+                    <div id="qr-reader"></div>
+                </div>
+                <div id="qr-reader-results" style="margin-top:1rem; font-weight:600"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="stopQRScanner()">Close Scanner</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+const currentUserId = {{ current_user.id }};
+const currentUserRole = '{{ current_user.role }}';
+const isAdmin = {{ 'true' if current_user.is_admin else 'false' }};
+
+// ===== Tab Switching =====
+function switchTab(tab) {
+    document.querySelectorAll('.portal-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.getElementById('content-' + tab).classList.add('active');
+}
+
+// ===== Modals =====
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// ===== Events =====
+async function loadEvents() {
+    const grid = document.getElementById('eventsGrid');
+    grid.innerHTML = '<div class="skeleton skeleton-card"></div>'.repeat(3);
+    
+    const res = await fetch('/api/events');
+    const events = await res.json();
+    if (!events.length) { grid.innerHTML = '<div class="empty-msg"><div class="empty-icon">📅</div><p>No events yet.</p></div>'; return; }
+    grid.innerHTML = events.map(e => {
+        const isTrending = e.attendee_count > 10;
+        const statusClass = e.status === 'Live' ? 'badge-live' : e.status === 'completed' ? 'badge-completed' : 'badge-upcoming';
+        
+        let actionBtn = '';
+        if (e.organizer_id === currentUserId) {
+            actionBtn = `<span class="badge-status badge-host">HOST</span>`;
+        } else {
+            actionBtn = e.is_registered
+                ? `<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); cancelRSVP(${e.id})">Cancel RSVP</button>`
+                : `<button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); rsvpEvent(${e.id})">RSVP</button>`;
+        }
+
+        const scanBtn = (isAdmin || currentUserRole === 'faculty') ? `<button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); openQRScanner(${e.id}, '${e.title}')" style="margin-left:0.5rem">Scan QR</button>` : '';
+        
+        let passBtn = '';
+        if (e.is_registered && e.status !== 'completed' && e.organizer_id !== currentUserId) {
+            passBtn = `<button class="btn btn-success btn-sm" onclick="event.stopPropagation(); showQRPass(${e.id}, '${e.title}')" style="margin-left:0.5rem">My Pass 🎫</button>`;
+        }
+
+        return `<div class="event-card" onclick="showEventDetails(${e.id})">
+            ${e.image_url ? `<img src="${e.image_url}" class="event-card-img" alt="Poster" onclick="event.stopPropagation(); openLightbox('${e.image_url}')">` : ''}
+            <div class="event-card-content">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+                    <div style="display:flex;align-items:center">
+                        <span class="badge-status ${statusClass}">${e.status}</span>
+                        ${isTrending ? '<span class="badge-trending">🔥 TRENDING</span>' : ''}
+                    </div>
+                    <div class="countdown" id="countdown-${e.id}" data-date="${e.date}"></div>
+                </div>
+                <div class="event-title">${e.title}</div>
+                <div class="event-meta">
+                    <span>📍 ${e.location || 'TBD'}</span>
+                    <span>📅 ${new Date(e.date).toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'})}</span>
+                    <span>🕐 ${new Date(e.date).toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'})}</span>
+                </div>
+                ${e.description ? `<div class="event-desc">${e.description.substring(0, 100)}${e.description.length > 100 ? '...' : ''}</div>` : ''}
+                <div class="event-footer">
+                    <span class="attendee-count">👥 ${e.attendee_count} / ${e.max_participants} attending</span>
+                    <div style="display:flex;align-items:center">${actionBtn}${passBtn}${scanBtn}</div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function showEventDetails(id) {
+    const res = await fetch(`/api/events/${id}`);
+    const e = await res.json();
+    const container = document.getElementById('eventDetailContent');
+    const actions = document.getElementById('eventDetailActions');
+    
+    container.innerHTML = `
+        ${e.image_url ? `<img src="${e.image_url}" class="detail-img" alt="Event Poster" onclick="openLightbox('${e.image_url}')" style="cursor:zoom-in">` : ''}
+        <div class="detail-header">
+            <div class="badge-status ${e.status === 'Live' ? 'badge-live' : e.status === 'completed' ? 'badge-completed' : 'badge-upcoming'}" style="width:fit-content;margin-bottom:0.5rem">${e.status}</div>
+            <h2 class="detail-title">${e.title}</h2>
+            <div class="detail-meta">
+                <span>📍 ${e.location || 'TBD'}</span>
+                <span>📅 ${new Date(e.date).toLocaleString()}</span>
+                <span>👤 ${e.organizer_id === currentUserId ? 'You are the Host' : 'Organized by: ' + e.organizer_name}</span>
+                ${e.camera_id ? `<span style="color:var(--accent-primary);font-weight:700">📹 Camera Associated: ${e.camera_name || 'Cam '+e.camera_id}</span>` : ''}
+            </div>
+        </div>
+        <div class="detail-body">${e.description || 'No description provided.'}</div>
+        ${e.camera_id && (isAdmin || currentUserRole === 'faculty') ? `<div style="margin-bottom:1.5rem"><a href="/camera/${e.camera_id}" class="btn btn-warning" style="text-decoration:none;display:inline-block">🎥 Watch Live Stream</a></div>` : ''}
+        <div class="attendee-count" style="font-size:1.1rem;margin-bottom:1rem">Participants (${e.attendee_count} / ${e.max_participants})</div>
+        <div id="attendeeList"></div>
+    `;
+    
+    actions.innerHTML = '';
+    if (e.is_registered && e.status !== 'completed' && e.organizer_id !== currentUserId) {
+        actions.innerHTML += `<button class="btn btn-success" onclick="showQRPass(${e.id}, '${e.title}')">My Entry Pass 🎫</button>`;
+    }
+    
+    if (isAdmin || currentUserRole === 'faculty') {
+        actions.innerHTML += `
+            <button class="btn btn-warning" onclick="openEditEvent(${e.id})">Edit Event</button>
+            <button class="btn btn-danger" onclick="deleteEvent(${e.id})">Delete Event</button>
+        `;
+        loadAttendees(e.id);
+    }
+    
+    openModal('eventDetailModal');
+}
+
+let editingEventId = null;
+
+function openEditEvent(id) {
+    fetch(`/api/events/${id}`).then(res => res.json()).then(e => {
+        editingEventId = id;
+        document.getElementById('evtTitle').value = e.title;
+        document.getElementById('evtDesc').value = e.description;
+        document.getElementById('evtLocation').value = e.location;
+        const d = new Date(e.date);
+        const dateStr = d.toISOString().slice(0, 16);
+        document.getElementById('evtDate').value = dateStr;
+        document.getElementById('evtMax').value = e.max_participants;
+        
+        document.querySelector('#eventModal h3').textContent = 'Edit Event';
+        document.querySelector('#eventModal .btn-primary').textContent = 'Update Event';
+        document.querySelector('#eventModal .btn-primary').onclick = updateEvent;
+        
+        closeModal('eventDetailModal');
+        openModal('eventModal');
+    });
+}
+
+async function updateEvent() {
+    if (!editingEventId) return;
+    const title = document.getElementById('evtTitle').value.trim();
+    const date = document.getElementById('evtDate').value;
+    if (!title || !date) return alert('Name and date are required');
+    
+    await fetch(`/api/events/${editingEventId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            title,
+            description: document.getElementById('evtDesc').value,
+            location: document.getElementById('evtLocation').value,
+            date: new Date(date).toISOString(),
+            max_participants: parseInt(document.getElementById('evtMax').value) || 100
+        })
+    });
+    
+    editingEventId = null;
+    resetEventModal();
+    closeModal('eventModal');
+    loadEvents();
+}
+
+function resetEventModal() {
+    editingEventId = null;
+    document.getElementById('evtTitle').value = '';
+    document.getElementById('evtDesc').value = '';
+    document.getElementById('evtLocation').value = '';
+    document.getElementById('evtDate').value = '';
+    document.getElementById('evtMax').value = 100;
+    document.querySelector('#eventModal h3').textContent = 'Create Event';
+    document.querySelector('#eventModal .btn-primary').textContent = 'Create Event';
+    document.querySelector('#eventModal .btn-primary').onclick = createEvent;
+}
+
+// Search Logic
+let searchTimeout = null;
+function handleSearch() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        const query = document.getElementById('portalSearch').value.toLowerCase();
+        
+        // Filter events, magazines, and posts
+        const selectors = ['.event-card', '.mag-card', '.post-item'];
+        selectors.forEach(selector => {
+            document.querySelectorAll(selector).forEach(el => {
+                const text = el.innerText.toLowerCase();
+                el.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+
+        // Show empty messages if all filtered out
+        const grids = ['eventsGrid', 'magazinesList', 'postsFeed'];
+        grids.forEach(gridId => {
+            const grid = document.getElementById(gridId);
+            const visible = Array.from(grid.children).some(child => child.style.display !== 'none' && !child.classList.contains('empty-msg'));
+            let emptyMsg = grid.querySelector('.search-empty-msg');
+            
+            if (!visible && grid.children.length > 0) {
+                if (!emptyMsg) {
+                    emptyMsg = document.createElement('div');
+                    emptyMsg.className = 'empty-msg search-empty-msg';
+                    emptyMsg.innerHTML = '<p>No results matching your search.</p>';
+                    grid.appendChild(emptyMsg);
+                }
+            } else if (emptyMsg) {
+                emptyMsg.remove();
+            }
+        });
+    }, 300);
+}
+
+async function loadAttendees(id) {
+    const res = await fetch(`/api/events/${id}/attendees`);
+    const attendees = await res.json();
+    const list = document.getElementById('attendeeList');
+    if (!attendees.length) { list.innerHTML = '<p style="color:var(--text-secondary);font-style:italic">No participants yet.</p>'; return; }
+    list.innerHTML = `<div class="attendee-list">${attendees.map(a => `
+        <div class="attendee-item">
+            <div class="attendee-info">
+                <span class="attendee-name">${a.username}</span>
+                <span class="attendee-id">ID: ${a.student_id} · ${a.email}</span>
+            </div>
+            <span class="badge-status ${a.qr_scanned ? 'badge-live' : 'badge-pending'}">${a.qr_scanned ? 'Checked In' : 'Registered'}</span>
+        </div>
+    `).join('')}</div>`;
+}
+
+async function deleteEvent(id) {
+    if (!confirm('Are you sure you want to delete this event? This action cannot be undone.')) return;
+    await fetch(`/api/events/${id}`, { method: 'DELETE' });
+    closeModal('eventDetailModal');
+    loadEvents();
+}
+
+async function createEvent() {
+    const title = document.getElementById('evtTitle').value.trim();
+    const date = document.getElementById('evtDate').value;
+    const btn = document.getElementById('eventSubmitBtn');
+    
+    if (!title || !date) return alert('Name and date are required');
+    
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Creating...';
+    }
+    
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('description', document.getElementById('evtDesc').value);
+    formData.append('location', document.getElementById('evtLocation').value);
+    formData.append('date', new Date(date).toISOString());
+    formData.append('max_participants', document.getElementById('evtMax').value);
+    formData.append('whatsapp_alert', document.getElementById('evtWhatsApp').checked);
+    
+    const fileInput = document.getElementById('evtImage');
+    if (fileInput.files[0]) formData.append('image', fileInput.files[0]);
+
+    try {
+        const res = await fetch('/api/events', { method:'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+            closeModal('eventModal'); 
+            loadEvents();
+            if (window.showToast) window.showToast(data.message, 'success');
+        } else {
+            alert(data.error || 'Failed to create event');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Network error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Create Event';
+        }
+    }
+}
+
+async function rsvpEvent(id) {
+    const res = await fetch(`/api/events/${id}/rsvp`, {method:'POST', headers:{'Content-Type':'application/json'}});
+    const data = await res.json();
+    alert(data.message || data.error); loadEvents();
+}
+
+async function cancelRSVP(id) {
+    const res = await fetch(`/api/events/${id}/rsvp`, {method:'DELETE'});
+    const data = await res.json();
+    alert(data.message || data.error); loadEvents();
+}
+
+// QR Logic
+let qrInstance = null;
+function showQRPass(eventId, eventTitle) {
+    const qrDiv = document.getElementById('qrcode');
+    qrDiv.innerHTML = '';
+    
+    // Create QR code content: student_id:event_id
+    const qrContent = JSON.stringify({
+        s: currentUserId,
+        e: eventId
+    });
+
+    qrInstance = new QRCode(qrDiv, {
+        text: qrContent,
+        width: 200,
+        height: 200,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.H
+    });
+
+    document.getElementById('qrStudentName').textContent = `{{ current_user.username }}`;
+    document.getElementById('qrEventTitle').textContent = eventTitle;
+    
+    openModal('qrPassModal');
+}
+
+let html5QrCode = null;
+function openQRScanner(eventId, eventTitle) {
+    openModal('qrScannerModal');
+    document.getElementById('qr-reader-results').textContent = 'Initializing camera...';
+    
+    html5QrCode = new Html5Qrcode("qr-reader");
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    html5QrCode.start(
+        { facingMode: "environment" }, 
+        config, 
+        async (decodedText) => {
+            try {
+                const data = JSON.parse(decodedText);
+                if (data.e !== eventId) {
+                    document.getElementById('qr-reader-results').textContent = '❌ Wrong event QR!';
+                    document.getElementById('qr-reader-results').style.color = 'var(--accent-danger)';
+                    return;
+                }
+                
+                // Process check-in
+                document.getElementById('qr-reader-results').textContent = '⌛ Verifying...';
+                document.getElementById('qr-reader-results').style.color = 'var(--accent-warning)';
+                
+                const res = await fetch(`/api/events/${eventId}/scan_qr`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ student_id: data.s })
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    document.getElementById('qr-reader-results').textContent = `✅ ${result.message}`;
+                    document.getElementById('qr-reader-results').style.color = 'var(--accent-success)';
+                    showToast(result.message, 'success');
+                    // Keep scanner running for next student, but show success for 2 seconds
+                } else {
+                    document.getElementById('qr-reader-results').textContent = `❌ ${result.error || result.message}`;
+                    document.getElementById('qr-reader-results').style.color = 'var(--accent-danger)';
+                }
+            } catch (e) {
+                console.error("QR Parse Error", e);
+                document.getElementById('qr-reader-results').textContent = '❌ Invalid QR Code';
+                document.getElementById('qr-reader-results').style.color = 'var(--accent-danger)';
+            }
+        },
+        (errorMessage) => {
+            // ignore scan errors
+        }
+    ).catch((err) => {
+        document.getElementById('qr-reader-results').textContent = '❌ Camera access denied or not found';
+        console.error(err);
+    });
+}
+
+function stopQRScanner() {
+    if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+            html5QrCode = null;
+            closeModal('qrScannerModal');
+        }).catch(err => {
+            console.error(err);
+            closeModal('qrScannerModal');
+        });
+    } else {
+        closeModal('qrScannerModal');
+    }
+}
+
+// ===== Magazines =====
+async function loadMagazines() {
+    const list = document.getElementById('magazinesList');
+    list.innerHTML = '<div class="skeleton skeleton-card"></div>'.repeat(2);
+    
+    const res = await fetch('/api/magazines');
+    const mags = await res.json();
+    if (!mags.length) { list.innerHTML = '<div class="empty-msg"><div class="empty-icon">📰</div><p>No magazine submissions yet.</p></div>'; return; }
+    list.innerHTML = mags.map(m => {
+        const statusClass = m.status === 'approved' ? 'badge-approved' : m.status === 'rejected' ? 'badge-rejected' : 'badge-pending';
+        const actions = (isAdmin || currentUserRole === 'faculty') && m.status === 'pending'
+            ? `<div style="display:flex;gap:0.5rem;margin-top:1rem" onclick="event.stopPropagation()"><button class="btn btn-success btn-sm" onclick="approveMag(${m.id})">✓ Approve</button><button class="btn btn-danger btn-sm" onclick="rejectMag(${m.id})">✕ Reject</button></div>` : '';
+        return `<div class="mag-card" onclick="showMagazineDetails(${m.id})">
+            ${m.image_url ? `<img src="${m.image_url}" class="mag-card-img" alt="Cover" onclick="event.stopPropagation(); openLightbox('${m.image_url}')">` : ''}
+            <div class="mag-card-content">
+                <div class="mag-header">
+                    <div style="display:flex;align-items:center">
+                        <span class="mag-title">${m.title}</span>
+                        ${m.status === 'approved' ? '<span class="badge-trending">✨ NEW</span>' : ''}
+                    </div>
+                    <span class="badge-status ${statusClass}">${m.status}</span>
+                </div>
+                <div class="mag-description">${m.description || 'No description provided.'}</div>
+                <div class="mag-read-more">Read Full Article →</div>
+                <div class="mag-footer" style="margin-top:1rem"><span>By ${m.author_name}</span></div>
+                ${actions}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function showMagazineDetails(id) {
+    const res = await fetch(`/api/magazines/${id}`);
+    const m = await res.json();
+    const container = document.getElementById('magDetailContent');
+    const actions = document.getElementById('magDetailActions');
+    
+    container.innerHTML = `
+        ${m.image_url ? `<img src="${m.image_url}" class="detail-img" alt="Article Cover" onclick="openLightbox('${m.image_url}')" style="cursor:zoom-in">` : ''}
+        <div class="detail-header">
+            <div class="badge-status ${m.status === 'approved' ? 'badge-approved' : m.status === 'rejected' ? 'badge-rejected' : 'badge-pending'}" style="width:fit-content;margin-bottom:0.5rem">${m.status}</div>
+            <h2 class="detail-title">${m.title}</h2>
+            <div class="detail-meta">
+                <span>👤 By: ${m.author_name}</span>
+                <span>📅 Submitted on: ${new Date(m.created_at).toLocaleString()}</span>
+                ${m.faculty_name ? `<span>✅ Reviewed by: ${m.faculty_name}</span>` : ''}
+            </div>
+        </div>
+        <div class="detail-body">
+            <p style="font-weight:600; font-size:1.1rem; color:var(--accent-primary); margin-bottom:1.5rem">${m.description || ''}</p>
+            <div class="mag-main-content">${m.content}</div>
+            ${m.content_image_url ? `<img src="${m.content_image_url}" class="detail-img" style="margin-top:2rem; cursor:zoom-in" alt="Content Image" onclick="openLightbox('${m.content_image_url}')">` : ''}
+        </div>
+    `;
+    
+    actions.innerHTML = '';
+    if (m.author_id === currentUserId || isAdmin) {
+        actions.innerHTML += `<button class="btn btn-danger" onclick="deleteMagazine(${m.id})">Delete Article</button>`;
+    }
+    
+    openModal('magDetailModal');
+}
+
+async function deleteMagazine(id) {
+    if (!confirm('Withdraw/Delete this magazine article?')) return;
+    await fetch(`/api/magazines/${id}`, { method: 'DELETE' });
+    closeModal('magDetailModal');
+    loadMagazines();
+}
+
+async function submitMagazine() {
+    const title = document.getElementById('magTitle').value.trim();
+    const content = document.getElementById('magContent').value.trim();
+    if (!title || !content) return showToast('Title and content are required', 'error');
+    
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('description', document.getElementById('magDesc').value);
+    formData.append('content', content);
+    
+    const posterInput = document.getElementById('magImage');
+    const contentInput = document.getElementById('magContentImage');
+    
+    if (posterInput.files[0]) formData.append('image', posterInput.files[0]);
+    if (contentInput.files[0]) formData.append('content_image', contentInput.files[0]);
+
+    const res = await fetch('/api/magazines', { method:'POST', body: formData });
+    if (res.ok) {
+        showToast('Article submitted for review!', 'success');
+        closeModal('magModal'); 
+        resetMagForm();
+        loadMagazines();
+    } else {
+        showToast('Submission failed', 'error');
+    }
+}
+
+function resetMagForm() {
+    document.getElementById('magTitle').value = ''; 
+    document.getElementById('magDesc').value = ''; 
+    document.getElementById('magContent').value = ''; 
+    document.getElementById('magImage').value = '';
+    document.getElementById('magContentImage').value = '';
+}
+
+// Toast Notification
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer') || createToastContainer();
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'} ${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(20px)';
+        setTimeout(() => toast.remove(), 400);
+    }, 4000);
+}
+
+function createToastContainer() {
+    const div = document.createElement('div');
+    div.id = 'toastContainer';
+    document.body.appendChild(div);
+    return div;
+}
+
+// Lightbox logic
+function openLightbox(url) {
+    const lightbox = document.getElementById('lightbox');
+    const img = document.getElementById('lightboxImg');
+    img.src = url;
+    lightbox.classList.add('show');
+}
+
+// Countdown Timers
+function updateCountdowns() {
+    document.querySelectorAll('.countdown').forEach(el => {
+        const date = new Date(el.dataset.date).getTime();
+        const now = new Date().getTime();
+        const diff = date - now;
+        
+        if (diff < 0) {
+            el.textContent = 'Started';
+            return;
+        }
+        
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (days > 0) el.textContent = `${days}d ${hours}h left`;
+        else if (hours > 0) el.textContent = `${hours}h ${mins}m left`;
+        else el.textContent = `${mins}m left`;
+    });
+}
+setInterval(updateCountdowns, 60000);
+
+async function approveMag(id) { await fetch(`/api/magazines/${id}/approve`, {method:'POST'}); loadMagazines(); }
+async function rejectMag(id) { await fetch(`/api/magazines/${id}/reject`, {method:'POST'}); loadMagazines(); }
+
+// ===== Posts =====
+function updateCharCount() { const len = document.getElementById('postInput').value.length; document.getElementById('charCount').textContent = `${len} / 500`; }
+
+async function loadPosts() {
+    const feed = document.getElementById('postsFeed');
+    feed.innerHTML = '<div class="skeleton" style="height:120px;margin-bottom:1rem"></div>'.repeat(3);
+    
+    const res = await fetch('/api/posts');
+    const posts = await res.json();
+    if (!posts.length) { feed.innerHTML = '<div class="empty-msg"><div class="empty-icon">💬</div><p>No posts yet. Be the first to share!</p></div>'; return; }
+    feed.innerHTML = posts.map(p => {
+        const deleteBtn = (p.author_id === currentUserId || isAdmin) ? `<button class="post-delete" onclick="deletePost(${p.id})" title="Delete">🗑</button>` : '';
+        return `<div class="post-item" id="post-${p.id}">
+            <div class="post-header">
+                <div class="post-author"><div class="post-avatar">${p.author_name[0].toUpperCase()}</div><div><div class="post-author-name">${p.author_name}</div><div class="post-time">${new Date(p.created_at).toLocaleString()}</div></div></div>
+                ${deleteBtn}
+            </div>
+            <div class="post-body">${p.content}</div>
+            <div class="post-actions" style="margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.05)">
+                <button class="btn-text" onclick="toggleComments(${p.id})" style="color:var(--accent-primary);font-size:0.85rem;cursor:pointer;background:none;border:none">💬 Discussion</button>
+            </div>
+            <div class="comment-section" id="comments-${p.id}" style="display:none">
+                <div class="comment-list" id="commentList-${p.id}"></div>
+                <div class="comment-input-group">
+                    <input type="text" class="comment-input" id="commentInput-${p.id}" placeholder="Write a comment...">
+                    <button class="btn btn-primary btn-sm" onclick="submitComment(${p.id})">Post</button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function toggleComments(postId) {
+    const section = document.getElementById(`comments-${postId}`);
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        loadComments(postId);
+    } else {
+        section.style.display = 'none';
+    }
+}
+
+async function loadComments(postId) {
+    const res = await fetch(`/api/posts/${postId}/comments`);
+    const comments = await res.json();
+    const list = document.getElementById(`commentList-${postId}`);
+    if (!comments.length) { list.innerHTML = '<p style="font-size:0.8rem;color:var(--text-secondary);font-style:italic;padding:0.5rem 0">No comments yet. Start the discussion!</p>'; return; }
+    list.innerHTML = comments.map(c => `
+        <div class="comment-item">
+            <span class="comment-author">${c.author_name}</span>
+            <span class="comment-text">${c.content}</span>
+            <span class="comment-time">${new Date(c.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
+        </div>
+    `).join('');
+}
+
+async function submitComment(postId) {
+    const input = document.getElementById(`commentInput-${postId}`);
+    const content = input.value.trim();
+    if (!content) return;
+    
+    await fetch(`/api/posts/${postId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+    });
+    
+    input.value = '';
+    loadComments(postId);
+}
+
+async function submitPost() {
+    const input = document.getElementById('postInput');
+    const content = input.value.trim();
+    if (!content) return;
+    await fetch('/api/posts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({content})});
+    input.value = ''; updateCharCount(); loadPosts();
+}
+
+async function deletePost(id) {
+    if (!confirm('Delete this post?')) return;
+    await fetch(`/api/posts/${id}`, {method:'DELETE'});
+    loadPosts();
+}
+
+
+
+// ===== Init =====
+loadEvents(); loadMagazines(); loadPosts();
+</script>
+</body>
+</html>

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CEMSS — My Account, profile, permissions and access requests.">
+    <title>My Account — CEMSS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
+</head>
+<body>
+
+{% include 'navbar.html' %}
+
+<div class="container">
+    <!-- Page Header -->
+    <div class="dashboard-header">
+        <h2>👤 My Account</h2>
+        <div>
+            {% if current_user.is_admin %}
+            <span class="role-badge admin">🛡️ Administrator</span>
+            {% else %}
+            <span class="role-badge user">👤 Standard User</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="account-grid">
+        <!-- Sidebar: Profile Card -->
+        <div class="account-sidebar">
+            <div class="panel profile-panel">
+                <div class="profile-avatar-large">
+                    {{ current_user.username[0]|upper }}
+                </div>
+                <h3 class="profile-name">{{ current_user.username }}</h3>
+                <p class="profile-email">{{ current_user.email or 'No email set' }}</p>
+
+                <div class="profile-meta">
+                    <div class="meta-item">
+                        <span class="label">Role</span>
+                        <span class="value">{{ 'Administrator' if current_user.is_admin else 'Standard User' }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="label">Joined</span>
+                        <span class="value">{{ current_user.created_at.strftime('%Y-%m-%d') }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="label">Phone</span>
+                        <span class="value">{{ current_user.phone_number or 'Not set' }}</span>
+                    </div>
+                </div>
+
+                <div class="profile-actions">
+                    <button class="btn btn-secondary btn-block" disabled title="Feature coming soon">Change Password</button>
+                    <button class="btn btn-secondary btn-block" disabled title="Feature coming soon">Edit Profile</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="account-content">
+
+            <!-- Camera Permissions -->
+            <div class="panel">
+                <div class="section-header">
+                    <h3>🎥 Camera Permissions</h3>
+                </div>
+
+                {% if current_user.is_admin %}
+                <div class="admin-access-block">
+                    <div class="access-icon">🛡️</div>
+                    <div class="access-details">
+                        <h4>Full System Access</h4>
+                        <p>You have unrestricted access to all cameras, settings, and logs.</p>
+                    </div>
+                </div>
+                {% else %}
+                <div class="permissions-list">
+                    {% if permissions %}
+                    <div class="permissions-grid">
+                        {% for perm in permissions %}
+                        <div class="permission-item">
+                            <div class="perm-header">
+                                <span class="perm-camera-name">{{ perm.camera.name }}</span>
+                                <span class="badge badge-success">Active</span>
+                            </div>
+                            <div class="perm-details">
+                                <div class="perm-check {{ 'allowed' if perm.can_view else 'denied' }}">
+                                    <span class="check-icon">{{ '✓' if perm.can_view else '✗' }}</span> View
+                                </div>
+                                <div class="perm-check {{ 'allowed' if perm.can_control else 'denied' }}">
+                                    <span class="check-icon">{{ '✓' if perm.can_control else '✗' }}</span> Control
+                                </div>
+                                <div class="perm-check {{ 'allowed' if perm.receive_alerts else 'denied' }}">
+                                    <span class="check-icon">{{ '✓' if perm.receive_alerts else '✗' }}</span> Alerts
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state-card">
+                        <div class="empty-state-icon">🔒</div>
+                        <h3 class="empty-state-title">No Camera Access</h3>
+                        <p class="empty-state-text">You don't have access to any cameras yet.</p>
+                        <button class="btn btn-primary" onclick="document.getElementById('requestForm').scrollIntoView({behavior:'smooth'})">
+                            Request Access
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Access Request Form (non-admin only) -->
+            {% if not current_user.is_admin %}
+            <div class="panel" id="requestForm" style="margin-top: 1.5rem;">
+                <div class="section-header">
+                    <h3>📨 Request Camera Access</h3>
+                </div>
+                <form id="permissionRequestForm">
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;">
+                            <label for="cameraSelect">Select Camera</label>
+                            <select id="cameraSelect" name="camera_id" required>
+                                <option value="">Choose a camera...</option>
+                                {% for camera in all_cameras %}
+                                <option value="{{ camera.id }}">{{ camera.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Permissions Needed</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" name="can_view" checked>
+                                <span class="checkmark"></span> View Live Feed
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" name="can_control">
+                                <span class="checkmark"></span> Control Camera (PTZ)
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" name="receive_alerts">
+                                <span class="checkmark"></span> Receive Alerts
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="requestReason">Reason</label>
+                        <textarea id="requestReason" name="reason" rows="2"
+                            placeholder="Briefly explain why you need access..." required></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Submit Request</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Request History -->
+            <div class="panel" style="margin-top: 1.5rem;">
+                <div class="section-header">
+                    <h3>🕘 Request History</h3>
+                </div>
+                <div class="history-list">
+                    {% if requests %}
+                    {% for req in requests %}
+                    <div class="history-item">
+                        <div class="history-main">
+                            <div class="history-camera">{{ req.camera.name }}</div>
+                            <div class="history-status status-{{ req.status }}">{{ req.status|capitalize }}</div>
+                        </div>
+                        <div class="history-meta">
+                            <span>{{ req.created_at.strftime('%Y-%m-%d') }}</span>
+                            <span class="separator">•</span>
+                            <span>{{ req.request_type }}</span>
+                        </div>
+                        {% if req.admin_response %}
+                        <div class="history-response">
+                            <strong>Admin Note:</strong> {{ req.admin_response }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p class="no-data" style="text-align:center; padding:1.5rem;">No previous requests.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<style>
+    /* ── Account Page Styles ── */
+    .role-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.4rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .role-badge.admin {
+        background: rgba(0,240,255,0.1);
+        border: 1px solid rgba(0,240,255,0.25);
+        color: var(--accent-primary);
+    }
+
+    .role-badge.user {
+        background: rgba(139,148,158,0.1);
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+    }
+
+    .account-grid {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    @media (max-width: 900px) {
+        .account-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Profile Panel */
+    .profile-panel { text-align: center; padding: 2rem; }
+
+    .profile-avatar-large {
+        width: 90px; height: 90px;
+        background: linear-gradient(135deg, var(--accent-primary), #7C3AED);
+        color: #020812;
+        font-size: 2.6rem;
+        font-weight: 700;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 1.25rem;
+        box-shadow: 0 4px 20px rgba(0,240,255,0.25);
+    }
+
+    .profile-name { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; }
+    .profile-email { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.5rem; }
+
+    .profile-meta {
+        text-align: left;
+        background: var(--bg-tertiary);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .meta-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .meta-item:last-child { border-bottom: none; }
+    .meta-item .label { color: var(--text-secondary); font-size: 0.8rem; }
+    .meta-item .value { color: var(--text-primary); font-weight: 500; font-size: 0.85rem; }
+
+    .profile-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+
+    /* Admin Access Block */
+    .admin-access-block {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        background: rgba(0,240,255,0.06);
+        border: 1px solid rgba(0,240,255,0.2);
+        border-radius: var(--radius);
+        padding: 1.25rem 1.5rem;
+    }
+
+    .access-icon { font-size: 2.5rem; }
+    .access-details h4 { color: var(--accent-primary); margin-bottom: 0.4rem; font-size: 1rem; }
+    .access-details p { color: var(--text-secondary); margin: 0; font-size: 0.875rem; }
+
+    /* Permissions Grid */
+    .permissions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .permission-item {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius);
+        padding: 1rem;
+        transition: var(--transition);
+    }
+
+    .permission-item:hover { border-color: var(--border-color); }
+
+    .perm-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .perm-camera-name { font-weight: 600; font-size: 0.9rem; }
+
+    .badge-success {
+        background: rgba(34,197,94,0.12);
+        color: var(--accent-success);
+        border: 1px solid rgba(34,197,94,0.25);
+        padding: 0.15rem 0.5rem;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    .perm-check {
+        display: flex; align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.3rem;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+
+    .perm-check.allowed { color: var(--accent-success); }
+    .perm-check.denied  { color: var(--text-secondary); opacity: 0.6; }
+    .check-icon { width: 1.1rem; text-align: center; }
+
+    /* Checkbox Group */
+    .checkbox-group {
+        display: flex; gap: 1.5rem; flex-wrap: wrap;
+        background: var(--bg-tertiary);
+        padding: 1rem; border-radius: 8px;
+    }
+
+    .custom-checkbox {
+        display: flex; align-items: center;
+        gap: 0.5rem; cursor: pointer;
+        font-size: 0.875rem; color: var(--text-primary);
+    }
+
+    /* Request History */
+    .history-item {
+        padding: 0.875rem 1rem;
+        background: var(--bg-tertiary);
+        border-radius: 8px;
+        margin-bottom: 0.75rem;
+        border-left: 3px solid var(--border-color);
+        transition: var(--transition);
+    }
+
+    .history-item:hover { border-left-color: var(--accent-primary); }
+
+    .history-main {
+        display: flex; justify-content: space-between;
+        align-items: center; margin-bottom: 0.3rem;
+    }
+
+    .history-camera { font-weight: 600; font-size: 0.9rem; }
+
+    .history-status {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+
+    .status-approved { background: rgba(34,197,94,0.12); color: var(--accent-success); }
+    .status-pending  { background: rgba(245,158,11,0.12); color: var(--accent-warning); }
+    .status-rejected { background: rgba(255,77,109,0.12); color: var(--accent-danger); }
+
+    .history-meta { font-size: 0.8rem; color: var(--text-secondary); }
+    .separator { margin: 0 0.4rem; }
+
+    .history-response {
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--border-subtle);
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+    }
+
+    .form-row { display: flex; gap: 1rem; }
+    .form-actions { margin-top: 0.5rem; }
+</style>
+
+<script src="{{ url_for('static', filename='js/account.js') }}"></script>
+</body>
+</html>
